@@ -270,13 +270,13 @@ async function scrape(platform) {
     displayResults(results);
 
     // Auto-download files for successful results
-    const successResults = results.filter(r => !r.error && r.filePath);
+    const successResults = results.filter(r => !r.error && (r.base64 || r.filePath));
     if (successResults.length > 0) {
       showToast(`Đang tự động tải ${successResults.length} file...`, 'success');
       for (let i = 0; i < successResults.length; i++) {
         // Stagger downloads to avoid browser blocking
         await new Promise(r => setTimeout(r, i * 500));
-        downloadFile(successResults[i].filePath);
+        downloadFile(successResults[i].filePath, successResults[i].base64, successResults[i].fileName);
       }
     }
   } finally {
@@ -284,12 +284,16 @@ async function scrape(platform) {
   }
 }
 
+let activeResults = {};
+
 function displayResults(results) {
   resultsGrid.innerHTML = '';
   resultsSection.style.display = 'block';
+  activeResults = {};
 
   results.forEach(result => {
     const card = document.createElement('div');
+    activeResults[result.platform] = result;
     
     if (result.error) {
       card.className = `result-card error`;
@@ -313,7 +317,7 @@ function displayResults(results) {
         </div>
         <div class="result-count">${result.totalReviews.toLocaleString()}</div>
         <div class="result-label">đánh giá được tìm thấy</div>
-        <button class="btn-download" onclick="downloadFile('${result.filePath}')">
+        <button class="btn-download" onclick="triggerDownload('${result.platform}')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/>
@@ -331,7 +335,38 @@ function displayResults(results) {
   resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function downloadFile(path) {
+function triggerDownload(platform) {
+  const result = activeResults[platform];
+  if (result) {
+    downloadFile(result.filePath, result.base64, result.fileName);
+  }
+}
+
+function downloadFile(path, base64, fileName) {
+  if (base64) {
+    try {
+      const binaryString = atob(base64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes.buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fileName || (path ? path.split('/').pop() : 'reviews.xlsx');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+      showToast('Đã tải file thành công!', 'success');
+      return;
+    } catch (e) {
+      console.error('Base64 download failed, falling back to URL download:', e);
+    }
+  }
+
   const a = document.createElement('a');
   a.href = `${API_BASE}${path}`;
   a.download = '';

@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const _gplayModule = require('google-play-scraper');
-const gplay = _gplayModule.default || _gplayModule;
+const gplay = (_gplayModule && _gplayModule.default && _gplayModule.default.app) ? _gplayModule.default : _gplayModule;
 const ExcelJS = require('exceljs');
 
 // Prevent unhandled errors from crashing serverless function
@@ -42,9 +42,12 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Ensure output directory exists
-if (!fs.existsSync(OUTPUT_DIR)) {
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+function ensureOutputDir() {
+  if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  }
 }
+ensureOutputDir();
 
 // Load saved config
 app.get('/api/config', (req, res) => {
@@ -62,6 +65,10 @@ app.get('/api/config', (req, res) => {
 // Save config
 app.post('/api/config', (req, res) => {
   try {
+    const configDir = path.dirname(CONFIG_PATH);
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true });
+    }
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(req.body, null, 2));
     res.json({ success: true });
   } catch (err) {
@@ -71,26 +78,27 @@ app.post('/api/config', (req, res) => {
 
 // Helper: extract Google Play app ID from URL
 function extractGooglePlayId(url) {
+  if (!url) return null;
   const match = url.match(/id=([a-zA-Z0-9._]+)/);
   if (match) return match[1];
-  // Maybe it's just the ID
-  if (/^[a-zA-Z0-9._]+$/.test(url)) return url;
+  if (/^[a-zA-Z0-9._]+$/.test(url.trim())) return url.trim();
   return null;
 }
 
 // Helper: extract App Store app ID from URL
 function extractAppStoreId(url) {
+  if (!url) return null;
   const match = url.match(/\/id(\d+)/);
   if (match) return parseInt(match[1]);
-  // Maybe it's just the number
-  if (/^\d+$/.test(url)) return parseInt(url);
+  if (/^\d+$/.test(url.trim())) return parseInt(url.trim());
   return null;
 }
 
 // Helper: get country code from App Store URL
 function extractAppStoreCountry(url) {
+  if (!url) return 'vn';
   const match = url.match(/\/([a-z]{2})\/app\//);
-  return match ? match[1] : 'us';
+  return match ? match[1] : 'vn';
 }
 
 // Scrape Google Play reviews
@@ -109,15 +117,20 @@ app.post('/api/scrape/android', async (req, res) => {
 
     let allReviews = [];
     let nextToken = undefined;
-    const MAX_PAGES = 50; // Safety limit
+    const MAX_PAGES = 30; // Safety limit for serverless
     let pageCount = 0;
+    const startTime = Date.now();
+    const TIMEOUT_LIMIT = 45000; // 45s safety threshold for serverless
 
-    // Send progress updates via SSE-like approach
-    // But since we're using simple REST, collect all then filter
     console.log(`[Android] Bắt đầu scraping app: ${appId}`);
     console.log(`[Android] Khoảng thời gian: ${dateFrom} đến ${dateTo}`);
 
     while (pageCount < MAX_PAGES) {
+      if (Date.now() - startTime > TIMEOUT_LIMIT) {
+        console.log(`[Android] Đạt giới hạn thời gian serverless (45s), dừng và trả về ${allReviews.length} kết quả`);
+        break;
+      }
+
       pageCount++;
       const options = {
         appId: appId,
@@ -161,8 +174,7 @@ app.post('/api/scrape/android', async (req, res) => {
 
       if (hasOlderReview || !nextToken) break;
 
-      // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     console.log(`[Android] Hoàn tất: ${allReviews.length} reviews trong khoảng thời gian`);
@@ -184,14 +196,13 @@ app.post('/api/scrape/android', async (req, res) => {
 
 // Helper: fetch iTunes RSS with retry and URL fallback
 async function fetchITunesReviews(country, appId, page) {
-  // Multiple URL patterns - Apple rate-limits differently per pattern
   const urlPatterns = [
     `https://itunes.apple.com/${country}/rss/customerreviews/page=${page}/id=${appId}/sortBy=mostRecent/json`,
     `https://itunes.apple.com/${country}/rss/customerreviews/id=${appId}/page=${page}/json`,
     `https://itunes.apple.com/rss/customerreviews/page=${page}/id=${appId}/sortBy=mostRecent/json?cc=${country}`,
   ];
 
-  const MAX_RETRIES = 3;
+  const MAX_RETRIES = 2;
 
   for (const urlPattern of urlPatterns) {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -201,17 +212,13 @@ async function fetchITunesReviews(country, appId, page) {
 
         let entries = data.feed.entry;
         if (!entries) {
-          // Empty response, try next attempt with backoff
           if (attempt < MAX_RETRIES) {
-            const delay = attempt * 2000; // 2s, 4s, 6s
-            console.log(`[iOS] Trang ${page}: empty response, retry ${attempt}/${MAX_RETRIES} sau ${delay}ms...`);
-            await new Promise(r => setTimeout(r, delay));
+            await new Promise(r => setTimeout(r, 1000));
             continue;
           }
           continue;
         }
 
-        // Handle single entry (not array)
         if (!Array.isArray(entries)) {
           entries = [entries];
         }
@@ -221,21 +228,20 @@ async function fetchITunesReviews(country, appId, page) {
           return reviews;
         }
 
-        // Got entries but no reviews, retry
         if (attempt < MAX_RETRIES) {
-          await new Promise(r => setTimeout(r, attempt * 1500));
+          await new Promise(r => setTimeout(r, 1000));
           continue;
         }
       } catch (err) {
         if (attempt < MAX_RETRIES) {
-          await new Promise(r => setTimeout(r, attempt * 2000));
+          await new Promise(r => setTimeout(r, 1000));
           continue;
         }
       }
     }
   }
 
-  return []; // All patterns and retries exhausted
+  return [];
 }
 
 // Scrape App Store reviews using iTunes RSS API directly
@@ -254,21 +260,28 @@ app.post('/api/scrape/ios', async (req, res) => {
     endDate.setHours(23, 59, 59, 999);
 
     let allReviews = [];
-    const MAX_PAGES = 10; // iTunes RSS API supports up to 10 pages
+    const MAX_PAGES = 10;
     let consecutiveEmpty = 0;
+    const startTime = Date.now();
+    const TIMEOUT_LIMIT = 45000;
 
     console.log(`[iOS] Bắt đầu scraping app ID: ${appId}, country: ${country}`);
     console.log(`[iOS] Khoảng thời gian: ${dateFrom} đến ${dateTo}`);
 
     for (let page = 1; page <= MAX_PAGES; page++) {
+      if (Date.now() - startTime > TIMEOUT_LIMIT) {
+        console.log(`[iOS] Đạt giới hạn thời gian serverless (45s), dừng và trả về ${allReviews.length} kết quả`);
+        break;
+      }
+
       try {
         const reviews = await fetchITunesReviews(country, appId, page);
 
         if (reviews.length === 0) {
           consecutiveEmpty++;
-          if (consecutiveEmpty >= 2) break; // Stop after 2 consecutive empty pages
+          if (consecutiveEmpty >= 2) break;
           console.log(`[iOS] Trang ${page}: 0 reviews (sẽ thử trang tiếp)`);
-          await new Promise(r => setTimeout(r, 3000));
+          await new Promise(r => setTimeout(r, 1000));
           continue;
         }
 
@@ -296,8 +309,7 @@ app.post('/api/scrape/ios', async (req, res) => {
 
         if (hasOlderReview) break;
 
-        // Delay between pages to avoid rate limit
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (pageErr) {
         console.log(`[iOS] Trang ${page} lỗi: ${pageErr.message}`);
         break;
@@ -323,6 +335,7 @@ app.post('/api/scrape/ios', async (req, res) => {
 
 // Generate Excel file
 async function generateExcel(reviews, fileName, appId, storeName) {
+  ensureOutputDir();
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Rating & Comment Scraper Tool';
   workbook.created = new Date();
@@ -331,7 +344,6 @@ async function generateExcel(reviews, fileName, appId, storeName) {
     properties: { defaultRowHeight: 22 },
   });
 
-  // Define columns based on store type
   const isAndroid = storeName === 'Google Play';
 
   if (isAndroid) {
@@ -383,7 +395,6 @@ async function generateExcel(reviews, fileName, appId, storeName) {
       version: review.version || '',
     });
 
-    // Alternate row colors
     if (index % 2 === 0) {
       row.fill = {
         type: 'pattern',
@@ -392,7 +403,6 @@ async function generateExcel(reviews, fileName, appId, storeName) {
       };
     }
 
-    // Color-code rating cells
     const ratingCell = row.getCell('rating');
     ratingCell.alignment = { horizontal: 'center' };
     ratingCell.numFmt = '0.0';
@@ -405,7 +415,6 @@ async function generateExcel(reviews, fileName, appId, storeName) {
       ratingCell.font = { bold: true, color: { argb: 'FFD93025' } };
     }
 
-    // Wrap text for comment column
     row.getCell('comment').alignment = { wrapText: true, vertical: 'top' };
   });
 
@@ -414,7 +423,6 @@ async function generateExcel(reviews, fileName, appId, storeName) {
     properties: { defaultRowHeight: 25 },
   });
 
-  // Calculate summary stats
   const totalReviews = reviews.length;
   const avgRating = totalReviews > 0
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews)
@@ -431,7 +439,6 @@ async function generateExcel(reviews, fileName, appId, storeName) {
     { header: 'Giá trị', key: 'value', width: 25 },
   ];
 
-  // Style summary header
   const summaryHeader = summarySheet.getRow(1);
   summaryHeader.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
   summaryHeader.fill = {
@@ -463,13 +470,11 @@ async function generateExcel(reviews, fileName, appId, storeName) {
     }
   });
 
-  // Auto-filter on main sheet
   sheet.autoFilter = {
     from: 'A1',
     to: `${String.fromCharCode(64 + sheet.columns.length)}1`,
   };
 
-  // Freeze header row
   sheet.views = [{ state: 'frozen', ySplit: 1 }];
 
   const filePath = path.join(OUTPUT_DIR, fileName);
@@ -479,11 +484,12 @@ async function generateExcel(reviews, fileName, appId, storeName) {
 
 // Download files
 app.get('/api/download/:filename', (req, res) => {
+  ensureOutputDir();
   const filePath = path.join(OUTPUT_DIR, req.params.filename);
   if (fs.existsSync(filePath)) {
     res.download(filePath);
   } else {
-    res.status(404).json({ error: 'File không tồn tại. Vui lòng scrape lại.' });
+    res.status(404).json({ error: 'File không tồn tại hoặc đã hết hạn trên serverless. Vui lòng thực hiện scrape lại để tải.' });
   }
 });
 
@@ -506,7 +512,8 @@ app.post('/api/app-info/android', async (req, res) => {
       appId,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[Android App Info Error]:', err);
+    res.status(500).json({ error: `Không thể lấy thông tin ứng dụng Google Play: ${err.message}` });
   }
 });
 
@@ -518,11 +525,10 @@ app.post('/api/app-info/ios', async (req, res) => {
     if (!appId) {
       return res.status(400).json({ error: 'URL không hợp lệ' });
     }
-    // Use iTunes Lookup API for app info
     const lookupUrl = `https://itunes.apple.com/lookup?id=${appId}&country=${country}`;
     const data = await fetchJSON(lookupUrl);
     if (!data.results || data.results.length === 0) {
-      return res.status(404).json({ error: 'Không tìm thấy ứng dụng' });
+      return res.status(404).json({ error: 'Không tìm thấy ứng dụng trên App Store' });
     }
     const appInfo = data.results[0];
     res.json({
@@ -535,7 +541,8 @@ app.post('/api/app-info/ios', async (req, res) => {
       appId: appId.toString(),
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[iOS App Info Error]:', err);
+    res.status(500).json({ error: `Không thể lấy thông tin ứng dụng App Store: ${err.message}` });
   }
 });
 

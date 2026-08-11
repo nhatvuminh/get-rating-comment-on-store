@@ -3,8 +3,17 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
-const gplay = require('google-play-scraper').default;
+const _gplayModule = require('google-play-scraper');
+const gplay = _gplayModule.default || _gplayModule;
 const ExcelJS = require('exceljs');
+
+// Prevent unhandled errors from crashing serverless function
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection:', err);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+});
 
 // Helper: fetch JSON from URL
 function fetchJSON(url) {

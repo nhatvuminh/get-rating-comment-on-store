@@ -223,7 +223,101 @@ app.post(['/api/scrape/android', '/scrape/android'], async (req, res) => {
   }
 });
 
-// Helper: fetch iTunes RSS with retry and URL fallback
+// Scrape App Store reviews using app-store-scraper (more reliable than iTunes RSS)
+const appStoreScraper = require('app-store-scraper');
+
+app.post(['/api/scrape/ios', '/scrape/ios'], async (req, res) => {
+  try {
+    const { url, dateFrom, dateTo } = req.body || {};
+    const appId = extractAppStoreId(url);
+    const country = extractAppStoreCountry(url);
+
+    if (!appId) {
+      return res.status(400).json({ error: 'Không thể lấy App ID từ URL. Vui lòng kiểm tra lại đường dẫn App Store.' });
+    }
+
+    const startDate = new Date(dateFrom);
+    const endDate = new Date(dateTo);
+    endDate.setHours(23, 59, 59, 999);
+
+    let allReviews = [];
+    const MAX_PAGES = 10;
+    const startTime = Date.now();
+    const TIMEOUT_LIMIT = 45000;
+
+    console.log(`[iOS] Bắt đầu scraping app ID: ${appId}, country: ${country}`);
+    console.log(`[iOS] Khoảng thời gian: ${dateFrom} đến ${dateTo}`);
+
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      if (Date.now() - startTime > TIMEOUT_LIMIT) {
+        console.log(`[iOS] Đạt giới hạn thời gian serverless (45s), dừng và trả về ${allReviews.length} kết quả`);
+        break;
+      }
+
+      try {
+        const reviews = await appStoreScraper.reviews({
+          id: appId,
+          country: country,
+          sort: appStoreScraper.sort.RECENT,
+          page: page,
+        });
+
+        if (!reviews || reviews.length === 0) {
+          console.log(`[iOS] Trang ${page}: 0 reviews, dừng`);
+          break;
+        }
+
+        let hasOlderReview = false;
+
+        for (const review of reviews) {
+          const reviewDate = new Date(review.updated);
+          if (reviewDate >= startDate && reviewDate <= endDate) {
+            allReviews.push({
+              userName: review.userName || 'Ẩn danh',
+              rating: review.score,
+              comment: review.text || '',
+              title: review.title || '',
+              date: reviewDate.toISOString().split('T')[0],
+              version: review.version || '',
+            });
+          }
+          if (reviewDate < startDate) {
+            hasOlderReview = true;
+          }
+        }
+
+        console.log(`[iOS] Trang ${page}: ${reviews.length} reviews, tổng cộng: ${allReviews.length}`);
+
+        if (hasOlderReview) break;
+
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (pageErr) {
+        console.log(`[iOS] Trang ${page} lỗi: ${pageErr.message}`);
+        break;
+      }
+    }
+
+    console.log(`[iOS] Hoàn tất: ${allReviews.length} reviews trong khoảng thời gian`);
+
+    // Generate Excel
+    const fileName = 'ios_rating_comment.xlsx';
+    const { filePath, base64 } = await generateExcel(allReviews, fileName, appId, 'App Store');
+
+    res.json({
+      success: true,
+      totalReviews: allReviews.length,
+      filePath: `/api/download/${fileName}`,
+      fileName,
+      base64,
+      appId: appId.toString(),
+    });
+  } catch (err) {
+    console.error('[iOS] Lỗi:', err);
+    res.status(500).json({ error: `Lỗi khi scrape App Store: ${err.message}` });
+  }
+});
+
+// Helper: fetch iTunes RSS with retry and URL fallback (kept for reference, no longer used)
 async function fetchITunesReviews(country, appId, page) {
   const urlPatterns = [
     `https://itunes.apple.com/${country}/rss/customerreviews/page=${page}/id=${appId}/sortBy=mostRecent/json`,
@@ -273,97 +367,6 @@ async function fetchITunesReviews(country, appId, page) {
   return [];
 }
 
-// Scrape App Store reviews using iTunes RSS API directly
-app.post(['/api/scrape/ios', '/scrape/ios'], async (req, res) => {
-  try {
-    const { url, dateFrom, dateTo } = req.body || {};
-    const appId = extractAppStoreId(url);
-    const country = extractAppStoreCountry(url);
-
-    if (!appId) {
-      return res.status(400).json({ error: 'Không thể lấy App ID từ URL. Vui lòng kiểm tra lại đường dẫn App Store.' });
-    }
-
-    const startDate = new Date(dateFrom);
-    const endDate = new Date(dateTo);
-    endDate.setHours(23, 59, 59, 999);
-
-    let allReviews = [];
-    const MAX_PAGES = 10;
-    let consecutiveEmpty = 0;
-    const startTime = Date.now();
-    const TIMEOUT_LIMIT = 45000;
-
-    console.log(`[iOS] Bắt đầu scraping app ID: ${appId}, country: ${country}`);
-    console.log(`[iOS] Khoảng thời gian: ${dateFrom} đến ${dateTo}`);
-
-    for (let page = 1; page <= MAX_PAGES; page++) {
-      if (Date.now() - startTime > TIMEOUT_LIMIT) {
-        console.log(`[iOS] Đạt giới hạn thời gian serverless (45s), dừng và trả về ${allReviews.length} kết quả`);
-        break;
-      }
-
-      try {
-        const reviews = await fetchITunesReviews(country, appId, page);
-
-        if (reviews.length === 0) {
-          consecutiveEmpty++;
-          if (consecutiveEmpty >= 2) break;
-          console.log(`[iOS] Trang ${page}: 0 reviews (sẽ thử trang tiếp)`);
-          await new Promise(r => setTimeout(r, 1000));
-          continue;
-        }
-
-        consecutiveEmpty = 0;
-        let hasOlderReview = false;
-
-        for (const review of reviews) {
-          const reviewDate = new Date(review.updated.label);
-          if (reviewDate >= startDate && reviewDate <= endDate) {
-            allReviews.push({
-              userName: review.author ? review.author.name.label : 'Ẩn danh',
-              rating: parseInt(review['im:rating'].label),
-              comment: review.content ? review.content.label : '',
-              title: review.title ? review.title.label : '',
-              date: reviewDate.toISOString().split('T')[0],
-              version: review['im:version'] ? review['im:version'].label : '',
-            });
-          }
-          if (reviewDate < startDate) {
-            hasOlderReview = true;
-          }
-        }
-
-        console.log(`[iOS] Trang ${page}: ${reviews.length} reviews, tổng cộng: ${allReviews.length}`);
-
-        if (hasOlderReview) break;
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } catch (pageErr) {
-        console.log(`[iOS] Trang ${page} lỗi: ${pageErr.message}`);
-        break;
-      }
-    }
-
-    console.log(`[iOS] Hoàn tất: ${allReviews.length} reviews trong khoảng thời gian`);
-
-    // Generate Excel
-    const fileName = 'ios_rating_comment.xlsx';
-    const { filePath, base64 } = await generateExcel(allReviews, fileName, appId, 'App Store');
-    
-    res.json({
-      success: true,
-      totalReviews: allReviews.length,
-      filePath: `/api/download/${fileName}`,
-      fileName,
-      base64,
-      appId: appId.toString(),
-    });
-  } catch (err) {
-    console.error('[iOS] Lỗi:', err);
-    res.status(500).json({ error: `Lỗi khi scrape App Store: ${err.message}` });
-  }
-});
 
 // Generate Excel file
 async function generateExcel(reviews, fileName, appId, storeName) {

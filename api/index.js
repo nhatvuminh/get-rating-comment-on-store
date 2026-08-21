@@ -223,151 +223,14 @@ app.post(['/api/scrape/android', '/scrape/android'], async (req, res) => {
   }
 });
 
-// ─── iOS: HTML scraping helpers ───────────────────────────────────────────────
-
-/**
- * Fetch a URL with redirect following and a browser-like User-Agent.
- */
-function fetchAppStorePage(url) {
-  return new Promise((resolve, reject) => {
-    const options = {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-    };
-    https.get(url, options, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return fetchAppStorePage(res.headers.location).then(resolve).catch(reject);
-      }
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve({ html: data, status: res.statusCode }));
-    }).on('error', reject);
-  });
-}
-
-/**
- * Extract reviews from App Store HTML page's embedded serialized-server-data JSON.
- * Returns an array of review objects with fields: id, userName, rating, title, comment, date, updated, version.
- */
-function extractReviewsFromAppStoreHtml(html) {
-  const scriptMatch = html.match(/<script[^>]+id="serialized-server-data"[^>]*>([\s\S]+?)<\/script>/);
-  if (!scriptMatch) {
-    console.log('[iOS HTML] Không tìm thấy serialized-server-data trong HTML');
-    return [];
-  }
-
-  let parsed;
-  try {
-    parsed = JSON.parse(scriptMatch[1]);
-  } catch (e) {
-    console.log('[iOS HTML] Không thể parse serialized-server-data JSON:', e.message);
-    return [];
-  }
-
-  const reviews = [];
-  function walk(obj) {
-    if (!obj || typeof obj !== 'object') return;
-    if (obj['$kind'] === 'Review' && obj.id) {
-      reviews.push({
-        id: String(obj.id),
-        userName: obj.reviewerName || 'Ẩn danh',
-        rating: typeof obj.rating === 'number' ? obj.rating : parseInt(obj.rating) || 0,
-        title: obj.title || '',
-        comment: obj.contents || '',
-        updated: obj.date || null,
-        date: obj.date ? new Date(obj.date).toISOString().split('T')[0] : '',
-        version: obj.version || '',
-      });
-      return;
-    }
-    if (Array.isArray(obj)) {
-      obj.forEach(walk);
-      return;
-    }
-    Object.values(obj).forEach(walk);
-  }
-  walk(parsed);
-
-  // Deduplicate by review ID
-  const seen = new Set();
-  return reviews.filter(r => {
-    if (seen.has(r.id)) return false;
-    seen.add(r.id);
-    return true;
-  });
-}
-
-/**
- * Scrape App Store reviews by fetching the HTML page directly.
- * Returns an array of reviews.
- */
-async function scrapeAppStoreHtml(appId, country, slug) {
-  // Construct the reviews URL: ?see-all=reviews forces the reviews section to be server-rendered
-  const reviewsUrl = slug
-    ? `https://apps.apple.com/${country}/app/${slug}/id${appId}?see-all=reviews`
-    : `https://apps.apple.com/${country}/app/id${appId}?see-all=reviews`;
-
-  console.log(`[iOS HTML] Fetching: ${reviewsUrl}`);
-  const { html, status } = await fetchAppStorePage(reviewsUrl);
-  console.log(`[iOS HTML] HTTP status: ${status}, HTML size: ${html.length} bytes`);
-
-  if (status !== 200) {
-    console.log(`[iOS HTML] Không thể lấy trang App Store (status ${status})`);
-    return [];
-  }
-
-  const reviews = extractReviewsFromAppStoreHtml(html);
-  console.log(`[iOS HTML] Tìm thấy ${reviews.length} reviews từ HTML`);
-  return reviews;
-}
-
-/**
- * Extract slug from App Store URL (the part between /app/ and /id).
- * e.g. "https://apps.apple.com/vn/app/pgbank-biz/id6755713686" → "pgbank-biz"
- */
-function extractAppStoreSlug(url) {
-  if (!url) return null;
-  const match = url.match(/\/app\/([^/]+)\/id\d+/);
-  return match ? match[1] : null;
-}
-
-/**
- * Fallback: fetch iTunes RSS reviews. Unreliable but can return more results when it works.
- */
-async function fetchITunesReviews(country, appId, page) {
-  const urlPatterns = [
-    `https://itunes.apple.com/${country}/rss/customerreviews/page=${page}/id=${appId}/sortBy=mostRecent/json`,
-    `https://itunes.apple.com/${country}/rss/customerreviews/id=${appId}/page=${page}/json`,
-    `https://itunes.apple.com/rss/customerreviews/page=${page}/id=${appId}/sortBy=mostRecent/json?cc=${country}`,
-  ];
-
-  for (const urlPattern of urlPatterns) {
-    try {
-      const data = await fetchJSON(urlPattern);
-      if (!data || !data.feed) continue;
-      let entries = data.feed.entry;
-      if (!entries) continue;
-      if (!Array.isArray(entries)) entries = [entries];
-      const reviews = entries.filter(e => e['im:rating']);
-      if (reviews.length > 0) return reviews;
-    } catch (err) {
-      // try next pattern
-    }
-  }
-  return [];
-}
-
-// ─── iOS: Scrape route ─────────────────────────────────────────────────────────
+// Scrape App Store reviews using app-store-scraper (more reliable than iTunes RSS)
+const appStoreScraper = require('app-store-scraper');
 
 app.post(['/api/scrape/ios', '/scrape/ios'], async (req, res) => {
   try {
     const { url, dateFrom, dateTo } = req.body || {};
     const appId = extractAppStoreId(url);
     const country = extractAppStoreCountry(url);
-    const slug = extractAppStoreSlug(url);
 
     if (!appId) {
       return res.status(400).json({ error: 'Không thể lấy App ID từ URL. Vui lòng kiểm tra lại đường dẫn App Store.' });
@@ -377,87 +240,72 @@ app.post(['/api/scrape/ios', '/scrape/ios'], async (req, res) => {
     const endDate = new Date(dateTo);
     endDate.setHours(23, 59, 59, 999);
 
+    let allReviews = [];
+    const MAX_PAGES = 10;
     const startTime = Date.now();
-    const TIMEOUT_LIMIT = 40000;
+    const TIMEOUT_LIMIT = 45000;
 
-    console.log(`[iOS] Bắt đầu scraping app ID: ${appId}, country: ${country}, slug: ${slug}`);
+    console.log(`[iOS] Bắt đầu scraping app ID: ${appId}, country: ${country}`);
     console.log(`[iOS] Khoảng thời gian: ${dateFrom} đến ${dateTo}`);
 
-    // ── Strategy 1: Scrape App Store HTML (always works, gives ~10 reviews) ──
-    const htmlReviews = await scrapeAppStoreHtml(appId, country, slug);
-
-    // ── Strategy 2: iTunes RSS fallback (intermittent, gives up to 500 reviews) ──
-    const rssReviewsRaw = [];
-    const MAX_RSS_PAGES = 10;
-    for (let page = 1; page <= MAX_RSS_PAGES; page++) {
+    for (let page = 1; page <= MAX_PAGES; page++) {
       if (Date.now() - startTime > TIMEOUT_LIMIT) {
-        console.log(`[iOS RSS] Đạt giới hạn thời gian, dừng RSS ở trang ${page}`);
+        console.log(`[iOS] Đạt giới hạn thời gian serverless (45s), dừng và trả về ${allReviews.length} kết quả`);
         break;
       }
-      const entries = await fetchITunesReviews(country, appId, page);
-      if (!entries || entries.length === 0) {
-        console.log(`[iOS RSS] Trang ${page}: 0 reviews, dừng RSS`);
+
+      try {
+        const reviews = await appStoreScraper.reviews({
+          id: appId,
+          country: country,
+          sort: appStoreScraper.sort.RECENT,
+          page: page,
+        });
+
+        if (!reviews || reviews.length === 0) {
+          console.log(`[iOS] Trang ${page}: 0 reviews, dừng`);
+          break;
+        }
+
+        let hasOlderReview = false;
+
+        for (const review of reviews) {
+          const reviewDate = new Date(review.updated);
+          if (reviewDate >= startDate && reviewDate <= endDate) {
+            allReviews.push({
+              userName: review.userName || 'Ẩn danh',
+              rating: review.score,
+              comment: review.text || '',
+              title: review.title || '',
+              date: reviewDate.toISOString().split('T')[0],
+              version: review.version || '',
+            });
+          }
+          if (reviewDate < startDate) {
+            hasOlderReview = true;
+          }
+        }
+
+        console.log(`[iOS] Trang ${page}: ${reviews.length} reviews, tổng cộng: ${allReviews.length}`);
+
+        if (hasOlderReview) break;
+
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (pageErr) {
+        console.log(`[iOS] Trang ${page} lỗi: ${pageErr.message}`);
         break;
       }
-      rssReviewsRaw.push(...entries);
-      console.log(`[iOS RSS] Trang ${page}: ${entries.length} entries, tổng: ${rssReviewsRaw.length}`);
-
-      // Check if all entries on this page are older than startDate — stop early
-      const allOld = entries.every(e => {
-        const d = e.updated && e.updated.label ? new Date(e.updated.label) : null;
-        return d && d < startDate;
-      });
-      if (allOld) break;
-
-      await new Promise(r => setTimeout(r, 300));
     }
 
-    // Map RSS entries to internal format
-    const rssReviews = rssReviewsRaw.map(e => {
-      const updatedLabel = e.updated && e.updated.label ? e.updated.label : null;
-      const reviewDate = updatedLabel ? new Date(updatedLabel) : null;
-      return {
-        id: e.id ? String(e.id.label || e.id) : null,
-        userName: (e.author && e.author.name && e.author.name.label) || 'Ẩn danh',
-        rating: parseInt((e['im:rating'] && e['im:rating'].label) || '0'),
-        title: (e.title && e.title.label) || '',
-        comment: (e.content && e.content.label) || '',
-        updated: updatedLabel,
-        date: reviewDate ? reviewDate.toISOString().split('T')[0] : '',
-        version: (e['im:version'] && e['im:version'].label) || '',
-      };
-    }).filter(r => r.id);
-
-    // ── Merge: combine HTML + RSS, deduplicate by id ──
-    const allRaw = [...htmlReviews, ...rssReviews];
-    const seenIds = new Set();
-    const dedupedAll = allRaw.filter(r => {
-      if (!r.id || seenIds.has(r.id)) return false;
-      seenIds.add(r.id);
-      return true;
-    });
-
-    console.log(`[iOS] Merged: ${htmlReviews.length} HTML + ${rssReviews.length} RSS = ${dedupedAll.length} unique reviews`);
-
-    // ── Filter by date range ──
-    const allReviews = dedupedAll.filter(r => {
-      if (!r.updated) return false;
-      const reviewDate = new Date(r.updated);
-      return reviewDate >= startDate && reviewDate <= endDate;
-    });
-
-    // Strip internal id field before returning
-    const finalReviews = allReviews.map(({ id, updated, ...rest }) => rest);
-
-    console.log(`[iOS] Hoàn tất: ${finalReviews.length} reviews trong khoảng thời gian`);
+    console.log(`[iOS] Hoàn tất: ${allReviews.length} reviews trong khoảng thời gian`);
 
     // Generate Excel
     const fileName = 'ios_rating_comment.xlsx';
-    const { filePath, base64 } = await generateExcel(finalReviews, fileName, appId, 'App Store');
+    const { filePath, base64 } = await generateExcel(allReviews, fileName, appId, 'App Store');
 
     res.json({
       success: true,
-      totalReviews: finalReviews.length,
+      totalReviews: allReviews.length,
       filePath: `/api/download/${fileName}`,
       fileName,
       base64,
@@ -468,6 +316,56 @@ app.post(['/api/scrape/ios', '/scrape/ios'], async (req, res) => {
     res.status(500).json({ error: `Lỗi khi scrape App Store: ${err.message}` });
   }
 });
+
+// Helper: fetch iTunes RSS with retry and URL fallback (kept for reference, no longer used)
+async function fetchITunesReviews(country, appId, page) {
+  const urlPatterns = [
+    `https://itunes.apple.com/${country}/rss/customerreviews/page=${page}/id=${appId}/sortBy=mostRecent/json`,
+    `https://itunes.apple.com/${country}/rss/customerreviews/id=${appId}/page=${page}/json`,
+    `https://itunes.apple.com/rss/customerreviews/page=${page}/id=${appId}/sortBy=mostRecent/json?cc=${country}`,
+  ];
+
+  const MAX_RETRIES = 2;
+
+  for (const urlPattern of urlPatterns) {
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const data = await fetchJSON(urlPattern);
+        if (!data || !data.feed) continue;
+
+        let entries = data.feed.entry;
+        if (!entries) {
+          if (attempt < MAX_RETRIES) {
+            await new Promise(r => setTimeout(r, 1000));
+            continue;
+          }
+          continue;
+        }
+
+        if (!Array.isArray(entries)) {
+          entries = [entries];
+        }
+
+        const reviews = entries.filter(e => e['im:rating']);
+        if (reviews.length > 0) {
+          return reviews;
+        }
+
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 1000));
+          continue;
+        }
+      } catch (err) {
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 1000));
+          continue;
+        }
+      }
+    }
+  }
+
+  return [];
+}
 
 
 // Generate Excel file

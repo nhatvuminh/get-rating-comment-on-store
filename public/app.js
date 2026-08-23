@@ -260,9 +260,9 @@ async function scrape(platform) {
       if (!response.ok) {
         showToast(data.error || 'Lỗi khi cào tổng hợp dữ liệu', 'error');
       } else {
-        activeResults.summary = { platform: 'summary', ...data.summary, fileName: data.fileName, filePath: data.filePath, base64: data.base64 };
-        activeResults.android = { platform: 'android', ...data.android };
-        activeResults.ios = { platform: 'ios', ...data.ios };
+        activeResults.summary = { platform: 'summary', ...(data.summary || {}), fileName: (data.summary && data.summary.fileName) || data.fileName || 'tong_hop_rating_comment.xlsx', filePath: (data.summary && data.summary.filePath) || data.filePath || '/api/download/tong_hop_rating_comment.xlsx', base64: (data.summary && data.summary.base64) || data.base64 };
+        activeResults.android = { platform: 'android', ...(data.android || {}), fileName: (data.android && data.android.fileName) || 'android_rating_comment.xlsx', filePath: (data.android && data.android.filePath) || '/api/download/android_rating_comment.xlsx', base64: (data.android && data.android.base64) || data.base64 };
+        activeResults.ios = { platform: 'ios', ...(data.ios || {}), fileName: (data.ios && data.ios.fileName) || 'ios_rating_comment.xlsx', filePath: (data.ios && data.ios.filePath) || '/api/download/ios_rating_comment.xlsx', base64: (data.ios && data.ios.base64) || data.base64 };
         displayResults('both');
       }
     } else if (platform === 'android') {

@@ -659,7 +659,7 @@ app.post(['/api/scrape/both', '/scrape/both'], async (req, res) => {
         avgCombined: parseFloat(avgCombined.toFixed(2)),
         topics: summaryTopics,
         fileName,
-        filePath,
+        filePath: `/api/download/${fileName}`,
         base64
       },
       android: {
@@ -668,8 +668,8 @@ app.post(['/api/scrape/both', '/scrape/both'], async (req, res) => {
         ratingCounts: androidRatingCounts,
         reviews: androidReviews,
         fileName: 'android_rating_comment.xlsx',
-        filePath: androidExcel.filePath,
-        base64: androidExcel.base64
+        filePath: androidExcel ? androidExcel.filePath : `/api/download/android_rating_comment.xlsx`,
+        base64: androidExcel ? androidExcel.base64 : base64
       },
       ios: {
         totalReviews: iosReviews.length,
@@ -677,8 +677,8 @@ app.post(['/api/scrape/both', '/scrape/both'], async (req, res) => {
         ratingCounts: iosRatingCounts,
         reviews: iosReviews,
         fileName: 'ios_rating_comment.xlsx',
-        filePath: iosExcel.filePath,
-        base64: iosExcel.base64
+        filePath: iosExcel ? iosExcel.filePath : `/api/download/ios_rating_comment.xlsx`,
+        base64: iosExcel ? iosExcel.base64 : base64
       },
       fileName,
       filePath: `/api/download/${fileName}`,

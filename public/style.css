@@ -198,6 +198,10 @@ body {
 /* ============================================
    Sections
    ============================================ */
+.config-section {
+  margin-bottom: 24px;
+}
+
 .section-header {
   display: flex;
   align-items: center;
@@ -417,6 +421,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: 24px;
+  margin-bottom: 24px;
 }
 
 .quick-dates {
@@ -558,6 +563,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* ============================================
    Action Section
    ============================================ */
+.action-section {
+  margin-bottom: 28px;
+}
+
 .action-buttons {
   display: flex;
   gap: 14px;

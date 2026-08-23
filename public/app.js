@@ -444,7 +444,7 @@ function renderTabPanel(result) {
       <th style="width: 50px;">STT</th>
       <th style="width: 140px;">Người dùng</th>
       ${getSortHeaderHtml('android', 'rating', 'Số sao', 'width: 100px;')}
-      <th>Bình luận</th>
+      <th style="min-width: 360px; width: 40%;">Bình luận</th>
       ${getSortHeaderHtml('android', 'date', 'Ngày', 'width: 110px;')}
       <th style="width: 70px;">Thích</th>
       <th style="width: 200px;">Phản hồi từ NPT</th>
@@ -455,7 +455,7 @@ function renderTabPanel(result) {
       <th style="width: 140px;">Người dùng</th>
       ${getSortHeaderHtml('ios', 'rating', 'Số sao', 'width: 100px;')}
       <th style="width: 150px;">Tiêu đề</th>
-      <th>Bình luận</th>
+      <th style="min-width: 360px; width: 40%;">Bình luận</th>
       ${getSortHeaderHtml('ios', 'date', 'Ngày', 'width: 110px;')}
       <th style="width: 90px;">Phiên bản</th>
     </tr>
@@ -1016,15 +1016,15 @@ function renderAIResults(data) {
           <table class="preview-table summary-table">
             <thead>
               <tr>
-                <th style="width: 60px;" class="text-center">STT</th>
-                <th style="width: 160px;">Nguồn File</th>
-                <th style="width: 140px;">Người dùng</th>
-                <th style="width: 90px;" class="text-center">Số sao</th>
-                <th>Bình luận</th>
-                <th style="width: 100px;" class="text-center">Ngày</th>
-                <th style="width: 120px;" class="text-center">Phân loại AI</th>
-                <th style="width: 140px;">Hành trình</th>
-                <th style="width: 180px;">Từ khóa trùng khớp</th>
+                <th style="width: 50px;" class="text-center">STT</th>
+                <th style="width: 140px;">Nguồn File</th>
+                <th style="width: 130px;">Người dùng</th>
+                <th style="width: 80px;" class="text-center">Số sao</th>
+                <th style="min-width: 360px; width: 35%;">Bình luận</th>
+                <th style="width: 95px;" class="text-center">Ngày</th>
+                <th style="width: 110px;" class="text-center">Phân loại AI</th>
+                <th style="width: 130px;">Hành trình</th>
+                <th style="width: 160px;">Từ khóa trùng khớp</th>
               </tr>
             </thead>
             <tbody id="aiTableBody">

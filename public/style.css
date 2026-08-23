@@ -1140,10 +1140,21 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .preview-table {
   width: 100%;
+  min-width: 1100px;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.83rem;
   text-align: left;
+}
+
+.text-center { text-align: center; }
+.font-medium { font-weight: 500; }
+.comment-cell {
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-width: 360px;
+  max-width: 550px;
 }
 
 .preview-table th {
@@ -1276,14 +1287,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   border: 1px solid rgba(99, 102, 241, 0.3);
 }
 
-.text-center { text-align: center; }
-.font-medium { font-weight: 500; }
-.comment-cell {
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-width: 380px;
-}
 .title-cell {
   font-weight: 600;
   color: var(--text-primary);

@@ -977,7 +977,7 @@ function renderAIResults(data) {
       </div>
 
       <!-- Stats Grid AI -->
-      <div class="stats-grid">
+      <div class="stats-grid stats-grid-ai">
         <div class="stat-card">
           <span class="stat-title">Tổng số dòng phân tích</span>
           <div class="stat-value">${(data.totalReviews || 0).toLocaleString()} dòng</div>
@@ -989,10 +989,6 @@ function renderAIResults(data) {
         <div class="stat-card">
           <span class="stat-title">Đánh giá Tiêu cực</span>
           <div class="stat-value" style="color: #ef4444;">⚠️ ${(data.countNeg || 0).toLocaleString()}</div>
-        </div>
-        <div class="stat-card">
-          <span class="stat-title">Đánh giá Trung tính</span>
-          <div class="stat-value" style="color: #9ca3af;">⚪ ${(data.countNeu || 0).toLocaleString()}</div>
         </div>
       </div>
 

@@ -1034,6 +1034,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   gap: 16px;
 }
 
+.stats-grid-ai {
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 20px;
+}
+
 .stat-card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);

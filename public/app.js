@@ -706,6 +706,269 @@ function downloadFile(path, base64, fileName) {
   showToast('Đang tải file...', 'success');
 }
 
+// Header Mode Navigation
+const navTabScraper = document.getElementById('navTabScraper');
+const navTabAI = document.getElementById('navTabAI');
+const modeScraperView = document.getElementById('modeScraperView');
+const modeAIView = document.getElementById('modeAIView');
+
+function switchMode(mode) {
+  if (mode === 'ai') {
+    if (navTabAI) navTabAI.classList.add('active');
+    if (navTabScraper) navTabScraper.classList.remove('active');
+    if (modeAIView) modeAIView.classList.add('active');
+    if (modeScraperView) modeScraperView.classList.remove('active');
+  } else {
+    if (navTabScraper) navTabScraper.classList.add('active');
+    if (navTabAI) navTabAI.classList.remove('active');
+    if (modeScraperView) modeScraperView.classList.add('active');
+    if (modeAIView) modeAIView.classList.remove('active');
+  }
+}
+
+if (navTabScraper) navTabScraper.addEventListener('click', () => switchMode('scraper'));
+if (navTabAI) navTabAI.addEventListener('click', () => switchMode('ai'));
+
+// Rating AI State & Elements
+let selectedRatingFiles = [];
+let selectedDictFile = null;
+
+const dropzoneRatingFiles = document.getElementById('dropzoneRatingFiles');
+const inputRatingFiles = document.getElementById('inputRatingFiles');
+const listRatingFiles = document.getElementById('listRatingFiles');
+
+const dropzoneDictFile = document.getElementById('dropzoneDictFile');
+const inputDictFile = document.getElementById('inputDictFile');
+const listDictFile = document.getElementById('listDictFile');
+
+const btnAnalyzeAI = document.getElementById('btnAnalyzeAI');
+const aiProgressSection = document.getElementById('aiProgressSection');
+const aiProgressText = document.getElementById('aiProgressText');
+const aiProgressBar = document.getElementById('aiProgressBar');
+const aiResultsSection = document.getElementById('aiResultsSection');
+const aiResultsWrapper = document.getElementById('aiResultsWrapper');
+
+function setupDropzone(dropzone, input, fileHandler) {
+  if (!dropzone || !input) return;
+  dropzone.addEventListener('click', () => input.click());
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.add('dropzone-active');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.remove('dropzone-active');
+    });
+  });
+
+  dropzone.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    const files = dt ? dt.files : [];
+    if (files && files.length) fileHandler(files);
+  });
+
+  input.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files.length) {
+      fileHandler(e.target.files);
+    }
+  });
+}
+
+setupDropzone(dropzoneRatingFiles, inputRatingFiles, (files) => {
+  for (let file of files) {
+    if (!selectedRatingFiles.some(f => f.name === file.name && f.size === file.size)) {
+      selectedRatingFiles.push(file);
+    }
+  }
+  renderFileChips();
+});
+
+setupDropzone(dropzoneDictFile, inputDictFile, (files) => {
+  if (files && files.length) {
+    selectedDictFile = files[0];
+  }
+  renderFileChips();
+});
+
+function renderFileChips() {
+  if (listRatingFiles) {
+    listRatingFiles.innerHTML = selectedRatingFiles.map((f, i) => `
+      <div class="file-chip">
+        <span>📁 ${escapeHtml(f.name)} (${(f.size / 1024).toFixed(1)} KB)</span>
+        <span class="file-chip-remove" onclick="removeRatingFile(${i})">×</span>
+      </div>
+    `).join('');
+  }
+
+  if (listDictFile) {
+    listDictFile.innerHTML = selectedDictFile ? `
+      <div class="file-chip" style="background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.3);">
+        <span>📚 ${escapeHtml(selectedDictFile.name)} (${(selectedDictFile.size / 1024).toFixed(1)} KB)</span>
+        <span class="file-chip-remove" onclick="removeDictFile()">×</span>
+      </div>
+    ` : '';
+  }
+}
+
+function removeRatingFile(idx) {
+  selectedRatingFiles.splice(idx, 1);
+  renderFileChips();
+}
+
+function removeDictFile() {
+  selectedDictFile = null;
+  renderFileChips();
+}
+
+if (btnAnalyzeAI) {
+  btnAnalyzeAI.addEventListener('click', async () => {
+    if (!selectedRatingFiles.length) {
+      showToast('Vui lòng chọn hoặc kéo thả ít nhất 1 file Excel chứa Rating!', 'error');
+      return;
+    }
+
+    const formData = new FormData();
+    selectedRatingFiles.forEach(file => {
+      formData.append('ratingFiles', file);
+    });
+    if (selectedDictFile) {
+      formData.append('dictFile', selectedDictFile);
+    }
+
+    btnAnalyzeAI.disabled = true;
+    if (aiProgressSection) aiProgressSection.style.display = 'block';
+    if (aiProgressBar) aiProgressBar.style.width = '40%';
+    if (aiProgressText) aiProgressText.textContent = 'Đang đọc các file Excel và phân tích từ khóa...';
+    if (aiResultsSection) aiResultsSection.style.display = 'none';
+
+    try {
+      const response = await fetch(`${API_BASE}/api/ai/analyze`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+      if (aiProgressBar) aiProgressBar.style.width = '100%';
+      await new Promise(r => setTimeout(r, 400));
+      if (aiProgressSection) aiProgressSection.style.display = 'none';
+
+      if (!response.ok || !data.success) {
+        showToast(data.error || 'Lỗi khi phân tích Rating AI', 'error');
+        return;
+      }
+
+      activeResults.ai = data;
+      renderAIResults(data);
+      showToast('Đã phân tích cảm xúc từ khóa thành công!', 'success');
+    } catch (err) {
+      if (aiProgressSection) aiProgressSection.style.display = 'none';
+      showToast(`Lỗi: ${err.message}`, 'error');
+    } finally {
+      btnAnalyzeAI.disabled = false;
+    }
+  });
+}
+
+function renderAIResults(data) {
+  if (!aiResultsSection || !aiResultsWrapper) return;
+  aiResultsSection.style.display = 'block';
+
+  const rows = (data.results || []).map((r, idx) => `
+    <tr>
+      <td class="text-center font-bold" style="font-weight: 700;">${idx + 1}</td>
+      <td class="font-medium text-muted">${escapeHtml(r.sourceFile || '')}</td>
+      <td class="font-medium">${escapeHtml(r.userName || 'Ẩn danh')}</td>
+      <td class="text-center">
+        <span class="rating-badge ${r.rating >= 4 ? 'star-high' : r.rating >= 3 ? 'star-med' : 'star-low'}">⭐ ${r.rating}</span>
+      </td>
+      <td class="comment-cell">${escapeHtml(r.comment || '')}</td>
+      <td class="text-center text-muted">${r.date || ''}</td>
+      <td class="text-center">
+        <span class="${r.badgeClass}">${escapeHtml(r.sentiment)}</span>
+      </td>
+      <td class="detail-cell" style="color: var(--accent); font-weight: 600;">${escapeHtml(r.matchedKeywords || '')}</td>
+    </tr>
+  `).join('');
+
+  aiResultsWrapper.innerHTML = `
+    <div class="tab-panel-inner">
+      <!-- Download Bar AI -->
+      <div class="download-bar summary" style="border-left-color: #8b5cf6;">
+        <div class="download-info">
+          <div class="file-icon">⚡</div>
+          <div>
+            <div class="file-name">${data.fileName || 'rating_ai_analysis.xlsx'}</div>
+            <div class="file-sub">File Báo cáo Phân tích Cảm xúc Rating AI (Đã gắn nhãn Tích cực / Tiêu cực / Từ khóa)</div>
+          </div>
+        </div>
+        <button class="btn btn-download-primary" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);" onclick="triggerDownload('ai')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Tải xuống Báo cáo Phân tích AI (.xlsx)
+        </button>
+      </div>
+
+      <!-- Stats Grid AI -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-title">Tổng số dòng phân tích</span>
+          <div class="stat-value">${(data.totalReviews || 0).toLocaleString()} dòng</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-title">Đánh giá Tích cực</span>
+          <div class="stat-value" style="color: #10b981;">✅ ${(data.countPos || 0).toLocaleString()}</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-title">Đánh giá Tiêu cực</span>
+          <div class="stat-value" style="color: #ef4444;">⚠️ ${(data.countNeg || 0).toLocaleString()}</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-title">Đánh giá Trung tính</span>
+          <div class="stat-value" style="color: #9ca3af;">⚪ ${(data.countNeu || 0).toLocaleString()}</div>
+        </div>
+      </div>
+
+      <!-- Data Preview Table AI -->
+      <div class="preview-section">
+        <div class="preview-header">
+          <h3>📋 Bảng phân loại cảm xúc chi tiết theo từ điển (${(data.results || []).length} dòng)</h3>
+        </div>
+        <div class="table-container">
+          <table class="preview-table summary-table">
+            <thead>
+              <tr>
+                <th style="width: 60px;" class="text-center">STT</th>
+                <th style="width: 160px;">Nguồn File</th>
+                <th style="width: 140px;">Người dùng</th>
+                <th style="width: 90px;" class="text-center">Số sao</th>
+                <th>Bình luận</th>
+                <th style="width: 100px;" class="text-center">Ngày</th>
+                <th style="width: 120px;" class="text-center">Phân loại AI</th>
+                <th style="width: 200px;">Từ khóa trùng khớp</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || '<tr><td colspan="8" class="text-center">Không có dữ liệu</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  aiResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 // Button event listeners
 scrapeAndroidBtn.addEventListener('click', () => scrape('android'));
 scrapeIosBtn.addEventListener('click', () => scrape('ios'));

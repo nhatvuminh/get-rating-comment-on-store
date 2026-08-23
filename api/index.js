@@ -1222,5 +1222,320 @@ app.post(['/api/app-info/ios', '/app-info/ios'], async (req, res) => {
   }
 });
 
+// ============================================
+// RATING AI & DICTIONARY CLASSIFIER MODULE
+// ============================================
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
+
+function extractCellText(cell) {
+  if (!cell || cell.value === null || cell.value === undefined) return '';
+  if (typeof cell.value === 'object') {
+    if (cell.value.result !== undefined) return String(cell.value.result).trim();
+    if (Array.isArray(cell.value.richText)) return cell.value.richText.map(r => r.text || '').join('').trim();
+    if (cell.value.text) return String(cell.value.text).trim();
+  }
+  return String(cell.value).trim();
+}
+
+async function parseRatingExcel(buffer, fileName) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+
+  const reviews = [];
+
+  workbook.worksheets.forEach(sheet => {
+    let headerRowIndex = -1;
+    let colMap = { userName: -1, rating: -1, comment: -1, date: -1 };
+
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber <= 5 && headerRowIndex === -1) {
+        row.eachCell((cell, colNumber) => {
+          const val = extractCellText(cell).toLowerCase();
+          if (!val) return;
+          if (colMap.userName === -1 && (val.includes('người dùng') || val.includes('user') || val.includes('tên') || val.includes('author'))) {
+            colMap.userName = colNumber;
+          }
+          if (colMap.rating === -1 && (val.includes('sao') || val.includes('rating') || val.includes('score') || val.includes('điểm'))) {
+            colMap.rating = colNumber;
+          }
+          if (colMap.comment === -1 && (val.includes('bình luận') || val.includes('comment') || val.includes('text') || val.includes('đánh giá') || val.includes('nội dung') || val.includes('nhận xét'))) {
+            colMap.comment = colNumber;
+          }
+          if (colMap.date === -1 && (val.includes('ngày') || val.includes('date') || val.includes('thời gian') || val.includes('time'))) {
+            colMap.date = colNumber;
+          }
+        });
+        if (colMap.comment !== -1) {
+          headerRowIndex = rowNumber;
+        }
+      }
+    });
+
+    if (headerRowIndex === -1) headerRowIndex = 1;
+    if (colMap.comment === -1) colMap.comment = 4;
+    if (colMap.rating === -1) colMap.rating = 3;
+    if (colMap.userName === -1) colMap.userName = 2;
+    if (colMap.date === -1) colMap.date = 5;
+
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber <= headerRowIndex) return;
+
+      const userName = colMap.userName > 0 ? extractCellText(row.getCell(colMap.userName)) || 'Ẩn danh' : 'Ẩn danh';
+      const rawRatingText = colMap.rating > 0 ? extractCellText(row.getCell(colMap.rating)) : '5';
+      const ratingMatch = rawRatingText.match(/\d+/);
+      const rating = ratingMatch ? Number(ratingMatch[0]) : 5;
+      const comment = colMap.comment > 0 ? extractCellText(row.getCell(colMap.comment)) : '';
+      const rawDateCell = colMap.date > 0 ? row.getCell(colMap.date).value : '';
+      let date = '';
+      if (rawDateCell instanceof Date) {
+        date = rawDateCell.toISOString().split('T')[0];
+      } else if (rawDateCell) {
+        date = extractCellText(row.getCell(colMap.date)).split('T')[0].split(' ')[0];
+      }
+
+      if (comment && comment.length > 0) {
+        reviews.push({
+          sourceFile: fileName,
+          sheetName: sheet.name,
+          userName,
+          rating,
+          comment,
+          date
+        });
+      }
+    });
+  });
+
+  return reviews;
+}
+
+async function parseDictionaryFile(buffer, fileName) {
+  const positiveKeywords = new Set(['tốt', 'tuyệt vời', 'tuyệt', 'ok', 'oke', 'ngon', 'uy tín', 'nhanh', 'tiện', 'hài lòng', 'mượt', 'chuẩn', 'xịn', 'yêu', 'thích', 'xuất sắc']);
+  const negativeKeywords = new Set(['lag', 'lỗi', 'đơ', 'rác', 'tệ', 'chậm', 'treo', 'phàn nàn', 'chán', 'kém', 'bực', 'ức chế', 'tệ hại', 'tồi', 'kém chất lượng', 'kém cỏi', 'quá kém', 'không đăng nhập được', 'không nạp được', 'mất tiền', 'bị văng', 'sập', 'không vào được', 'lừa đảo', 'phiền']);
+
+  if (!buffer) return { positiveKeywords, negativeKeywords };
+
+  try {
+    const ext = path.extname(fileName || '').toLowerCase();
+
+    if (ext === '.txt' || ext === '.csv') {
+      const text = buffer.toString('utf-8');
+      const lines = text.split(/\r?\n/);
+      lines.forEach(line => {
+        const trimmed = line.trim().toLowerCase();
+        if (!trimmed) return;
+        const parts = trimmed.split(/[,;\t]/);
+        const kw = parts[0].trim();
+        const tag = parts[1] ? parts[1].trim() : '';
+
+        if (tag.includes('tiêu cực') || tag.includes('negative') || tag.includes('bad') || tag.includes('lỗi')) {
+          negativeKeywords.add(kw);
+        } else if (tag.includes('tích cực') || tag.includes('positive') || tag.includes('good')) {
+          positiveKeywords.add(kw);
+        } else {
+          if (kw.includes('lỗi') || kw.includes('lag') || kw.includes('tệ') || kw.includes('chậm') || kw.includes('chán')) {
+            negativeKeywords.add(kw);
+          } else {
+            positiveKeywords.add(kw);
+          }
+        }
+      });
+    } else {
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer);
+      workbook.worksheets.forEach(sheet => {
+        sheet.eachRow((row) => {
+          const val1 = row.getCell(1).value ? String(row.getCell(1).value).trim().toLowerCase() : '';
+          const val2 = row.getCell(2).value ? String(row.getCell(2).value).trim().toLowerCase() : '';
+          if (!val1) return;
+
+          if (val2.includes('tiêu cực') || val2.includes('negative') || val2.includes('chưa tốt')) {
+            negativeKeywords.add(val1);
+          } else if (val2.includes('tích cực') || val2.includes('positive') || val2.includes('tốt')) {
+            positiveKeywords.add(val1);
+          } else {
+            if (val1.includes('lỗi') || val1.includes('lag') || val1.includes('tệ') || val1.includes('chậm') || val1.includes('chán')) {
+              negativeKeywords.add(val1);
+            } else {
+              positiveKeywords.add(val1);
+            }
+          }
+        });
+      });
+    }
+  } catch (err) {
+    console.error('Error parsing dictionary file:', err.message);
+  }
+
+  return { positiveKeywords, negativeKeywords };
+}
+
+function classifySentimentWithDict(comment, rating, dict) {
+  const textLower = (comment || '').toLowerCase();
+  const matchedPos = [];
+  const matchedNeg = [];
+
+  dict.negativeKeywords.forEach(kw => {
+    if (textLower.includes(kw)) matchedNeg.push(kw);
+  });
+
+  dict.positiveKeywords.forEach(kw => {
+    if (textLower.includes(kw)) matchedPos.push(kw);
+  });
+
+  if (matchedNeg.length > 0) {
+    return {
+      sentiment: 'Tiêu cực',
+      matchedKeywords: matchedNeg.join(', '),
+      badgeClass: 'badge-ai-negative'
+    };
+  }
+
+  if (matchedPos.length > 0) {
+    return {
+      sentiment: 'Tích cực',
+      matchedKeywords: matchedPos.join(', '),
+      badgeClass: 'badge-ai-positive'
+    };
+  }
+
+  if (rating <= 2) {
+    return {
+      sentiment: 'Tiêu cực',
+      matchedKeywords: `Đánh giá ${rating} sao`,
+      badgeClass: 'badge-ai-negative'
+    };
+  } else if (rating >= 4) {
+    return {
+      sentiment: 'Tích cực',
+      matchedKeywords: `Đánh giá ${rating} sao`,
+      badgeClass: 'badge-ai-positive'
+    };
+  }
+
+  return {
+    sentiment: 'Trung tính',
+    matchedKeywords: 'Không có từ khóa',
+    badgeClass: 'badge-ai-neutral'
+  };
+}
+
+async function generateAIAnalysisExcel(results, fileName) {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Báo cáo Rating AI');
+
+  sheet.columns = [
+    { header: 'STT', key: 'stt', width: 8 },
+    { header: 'Tên File / Nguồn', key: 'sourceFile', width: 25 },
+    { header: 'Người dùng', key: 'userName', width: 22 },
+    { header: 'Số sao', key: 'rating', width: 12 },
+    { header: 'Bình luận', key: 'comment', width: 55 },
+    { header: 'Ngày', key: 'date', width: 14 },
+    { header: 'Phân loại AI', key: 'sentiment', width: 16 },
+    { header: 'Từ khóa trùng khớp', key: 'matchedKeywords', width: 30 }
+  ];
+
+  const headerRow = sheet.getRow(1);
+  headerRow.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FFFFFF' } };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '6366F1' } };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  results.forEach((r, idx) => {
+    const row = sheet.addRow({
+      stt: idx + 1,
+      sourceFile: r.sourceFile,
+      userName: r.userName,
+      rating: `⭐ ${r.rating}`,
+      comment: r.comment,
+      date: r.date,
+      sentiment: r.sentiment,
+      matchedKeywords: r.matchedKeywords
+    });
+
+    const isNeg = r.sentiment === 'Tiêu cực';
+    const isPos = r.sentiment === 'Tích cực';
+    const cellSentiment = row.getCell('sentiment');
+    cellSentiment.font = { bold: true, color: { argb: isNeg ? 'EF4444' : isPos ? '10B981' : '6B7280' } };
+  });
+
+  sheet.views = [{ showGridLines: true }];
+
+  ensureOutputDir();
+  const filePath = path.join(OUTPUT_DIR, fileName);
+  try {
+    await workbook.xlsx.writeFile(filePath);
+  } catch (e) {
+    console.error('Error writing AI excel file:', e.message);
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return { filePath, base64: buffer.toString('base64') };
+}
+
+app.post(['/api/ai/analyze', '/ai/analyze'], upload.fields([{ name: 'ratingFiles', maxCount: 20 }, { name: 'dictFile', maxCount: 1 }]), async (req, res) => {
+  try {
+    const ratingFiles = req.files && req.files.ratingFiles ? req.files.ratingFiles : [];
+    const dictFile = req.files && req.files.dictFile ? req.files.dictFile[0] : null;
+
+    if (!ratingFiles.length) {
+      return res.status(400).json({ error: 'Vui lòng tải lên ít nhất 1 file Excel chứa đánh giá Rating!' });
+    }
+
+    const dict = await parseDictionaryFile(dictFile ? dictFile.buffer : null, dictFile ? dictFile.originalname : '');
+
+    let allReviews = [];
+    for (const file of ratingFiles) {
+      const parsed = await parseRatingExcel(file.buffer, file.originalname);
+      allReviews.push(...parsed);
+    }
+
+    if (!allReviews.length) {
+      return res.status(400).json({ error: 'Không đọc được dữ liệu đánh giá nào từ các file Excel đã tải lên.' });
+    }
+
+    let countPos = 0;
+    let countNeg = 0;
+    let countNeu = 0;
+
+    const classifiedResults = allReviews.map((r, idx) => {
+      const { sentiment, matchedKeywords, badgeClass } = classifySentimentWithDict(r.comment, r.rating, dict);
+      if (sentiment === 'Tích cực') countPos++;
+      else if (sentiment === 'Tiêu cực') countNeg++;
+      else countNeu++;
+
+      return {
+        id: idx + 1,
+        ...r,
+        sentiment,
+        matchedKeywords,
+        badgeClass
+      };
+    });
+
+    const fileName = 'rating_ai_analysis.xlsx';
+    const { filePath, base64 } = await generateAIAnalysisExcel(classifiedResults, fileName);
+
+    res.json({
+      success: true,
+      totalReviews: classifiedResults.length,
+      countPos,
+      countNeg,
+      countNeu,
+      dictInfo: {
+        posKeywordsCount: dict.positiveKeywords.size,
+        negKeywordsCount: dict.negativeKeywords.size
+      },
+      results: classifiedResults,
+      fileName,
+      filePath: `/api/download/${fileName}`,
+      base64
+    });
+  } catch (err) {
+    console.error('Error in AI analysis:', err);
+    res.status(500).json({ error: `Lỗi khi phân tích dữ liệu Rating AI: ${err.message}` });
+  }
+});
+
 module.exports = app;
 

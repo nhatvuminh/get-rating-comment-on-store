@@ -1411,80 +1411,79 @@ async function parseDictionaryFile(buffer, fileName) {
   return { positiveKeywords, negativeKeywords, dictItems };
 }
 
-function classifySentimentWithDict(comment, rating, dict) {
+function classifySentimentWithDict(comment, rating, dict = {}) {
   const textLower = (comment || '').toLowerCase();
   const matchedPos = [];
   const matchedNeg = [];
-  const matchedJourneys = new Set();
+  let journey = 'Daily';
 
-  if (Array.isArray(dict.dictItems) && dict.dictItems.length > 0) {
+  // 1. Identify Journey (Lending, RM, 247, Daily)
+  const isLending = textLower.includes('vay') || textLower.includes('lending') || textLower.includes('giải ngân') || textLower.includes('giai ngan') || textLower.includes('khoản vay') || textLower.includes('hạn mức') || textLower.includes('bảo lãnh') || textLower.includes('bao lanh') || textLower.includes('dư nợ') || textLower.includes('tín dụng') || textLower.includes('khế ước') || textLower.includes('lãi suất') || textLower.includes('lãi vay') || textLower.includes('trả nợ');
+  const isRM = textLower.includes('rm') || textLower.includes('relationship manager') || textLower.includes('quản lý quan hệ') || textLower.includes('qhkh') || textLower.includes('cán bộ') || textLower.includes('nhân viên') || textLower.includes('chi nhánh') || textLower.includes('phòng giao dịch') || textLower.includes('pgd') || textLower.includes('quầy giao dịch') || textLower.includes('chuyên viên');
+  const is247 = textLower.includes('247') || textLower.includes('mb247') || textLower.includes('tổng đài') || textLower.includes('hotline') || textLower.includes('1900 9045') || textLower.includes('biz helper') || textLower.includes('bizhelper') || textLower.includes('call center') || textLower.includes('cskh') || textLower.includes('khiếu nại') || textLower.includes('khieu nai') || textLower.includes('tra soát') || textLower.includes('ticket');
+
+  if (isLending) journey = 'Lending';
+  else if (isRM) journey = 'RM';
+  else if (is247) journey = '247';
+  else journey = 'Daily';
+
+  // 2. Keyword Matching from dict if present
+  if (dict && Array.isArray(dict.dictItems) && dict.dictItems.length > 0) {
     dict.dictItems.forEach(item => {
       if (item.keyword && textLower.includes(item.keyword)) {
-        if (item.sentiment === 'Tiêu cực') {
-          matchedNeg.push(item.keyword);
-        } else {
-          matchedPos.push(item.keyword);
-        }
-        if (item.journey && item.journey !== 'Đánh giá chung') {
-          matchedJourneys.add(item.journey);
-        }
+        if (item.sentiment === 'Tiêu cực') matchedNeg.push(item.keyword);
+        else matchedPos.push(item.keyword);
+        if (item.journey && item.journey !== 'Daily') journey = item.journey;
       }
     });
   }
 
-  if (matchedNeg.length === 0 && matchedPos.length === 0) {
-    dict.negativeKeywords.forEach(kw => {
-      if (textLower.includes(kw)) matchedNeg.push(kw);
-    });
-    dict.positiveKeywords.forEach(kw => {
-      if (textLower.includes(kw)) matchedPos.push(kw);
-    });
-  }
+  // 3. Problem & Negative Term Indicators (Captures negative reviews at 5-star ratings!)
+  const NEGATIVE_INDICATORS = [
+    'lỗi', 'lag', 'đơ', 'rác', 'tệ', 'chậm', 'treo', 'văng', 'sập', 'kém', 'chán', 'ức chế', 'bực',
+    'khó', 'không', 'ko', 'k ', 'sai', 'hỏng', 'bị', 'hết hạn', 'quên', 'phát sinh', 'chưa', 'chờ',
+    'giữ hồ sơ', 'từ chối', 'tự thoát', 'bắt', 'khóa', 'phiền', 'tồi', 'vượt hạn mức', 'mất tiền',
+    'không vào', 'không nạp', 'không mở', 'không dùng', 'phản hồi chậm', 'không nghe', 'máy bận',
+    'quá lâu', 'khiếu nại', 'tra soát', 'bảo trì', 'xoay mãi', 'loading mãi', 'không tải', 'tự xóa'
+  ];
 
-  let journeyStr = Array.from(matchedJourneys).join(', ');
+  const POSITIVE_INDICATORS = [
+    'tốt', 'tuyệt vời', 'tuyệt', 'mượt', 'nhanh', 'ngon', 'xịn', 'tiện', 'chu đáo', 'nhiệt tình',
+    'hài lòng', 'good', 'great', 'ok', 'oke', 'ưng ý', 'xuất sắc', 'uy tín', 'dễ dùng', 'gọn'
+  ];
 
-  if (!journeyStr) {
-    if (textLower.includes('đăng nhập') || textLower.includes('otp') || textLower.includes('xác thực') || textLower.includes('mật khẩu') || textLower.includes('faceid') || textLower.includes('vân tay')) {
-      journeyStr = 'Kích hoạt & Đăng nhập';
-    } else if (textLower.includes('chuyển tiền') || textLower.includes('nạp tiền') || textLower.includes('rút tiền') || textLower.includes('thanh toán') || textLower.includes('giao dịch') || textLower.includes('chuyển khoản')) {
-      journeyStr = 'Giao dịch & Chuyển tiền';
-    } else if (textLower.includes('giao diện') || textLower.includes('ui') || textLower.includes('ux') || textLower.includes('nhìn') || textLower.includes('màu') || textLower.includes('chữ') || textLower.includes('khó nhìn')) {
-      journeyStr = 'Trải nghiệm UI/UX';
-    } else if (textLower.includes('lỗi') || textLower.includes('lag') || textLower.includes('đơ') || textLower.includes('sập') || textLower.includes('văng') || textLower.includes('vào được') || textLower.includes('cập nhật')) {
-      journeyStr = 'Vận hành & Hệ thống';
-    } else if (textLower.includes('hỗ trợ') || textLower.includes('nhân viên') || textLower.includes('cskh') || textLower.includes('tư vấn') || textLower.includes('hotline') || textLower.includes('gọi')) {
-      journeyStr = 'Dịch vụ CSKH';
-    } else {
-      journeyStr = 'Đánh giá chung';
-    }
-  }
+  NEGATIVE_INDICATORS.forEach(kw => {
+    if (textLower.includes(kw) && !matchedNeg.includes(kw)) matchedNeg.push(kw);
+  });
 
-  let finalSentiment = 'Trung tính';
-  let badgeClass = 'badge-ai-neutral';
+  POSITIVE_INDICATORS.forEach(kw => {
+    if (textLower.includes(kw) && !matchedPos.includes(kw)) matchedPos.push(kw);
+  });
+
+  // 4. Sentiment Classification Rules:
+  // Rule A: Rating 1★ or 2★ -> AUTO TIÊU CỰC
+  // Rule B: Any Negative problem keyword present -> TIÊU CỰC (handles 5★ reviews with negative text!)
+  let finalSentiment = 'Tích cực';
+  let badgeClass = 'badge-ai-positive';
   let matchedKeywords = '';
 
-  if (matchedNeg.length > 0) {
+  const isNegAuto = rating <= 2;
+  const hasNegKeyword = matchedNeg.length > 0;
+
+  if (isNegAuto || hasNegKeyword) {
     finalSentiment = 'Tiêu cực';
-    matchedKeywords = Array.from(new Set(matchedNeg)).join(', ');
     badgeClass = 'badge-ai-negative';
-  } else if (matchedPos.length > 0) {
+    matchedKeywords = matchedNeg.length > 0 ? Array.from(new Set(matchedNeg)).slice(0, 4).join(', ') : `Đánh giá ${rating} sao`;
+  } else {
     finalSentiment = 'Tích cực';
-    matchedKeywords = Array.from(new Set(matchedPos)).join(', ');
     badgeClass = 'badge-ai-positive';
-  } else if (rating <= 2) {
-    finalSentiment = 'Tiêu cực';
-    matchedKeywords = `Đánh giá ${rating} sao`;
-    badgeClass = 'badge-ai-negative';
-  } else if (rating >= 4) {
-    finalSentiment = 'Tích cực';
-    matchedKeywords = `Đánh giá ${rating} sao`;
-    badgeClass = 'badge-ai-positive';
+    matchedKeywords = matchedPos.length > 0 ? Array.from(new Set(matchedPos)).slice(0, 4).join(', ') : `Đánh giá ${rating} sao`;
   }
 
   return {
     sentiment: finalSentiment,
     matchedKeywords,
-    journey: journeyStr,
+    journey,
     badgeClass
   };
 }
@@ -1519,7 +1518,7 @@ async function generateAIAnalysisExcel(results, fileName) {
       comment: r.comment,
       date: r.date,
       sentiment: r.sentiment,
-      journey: r.journey || 'Đánh giá chung',
+      journey: r.journey || 'Daily',
       matchedKeywords: r.matchedKeywords
     });
 

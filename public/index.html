@@ -302,8 +302,8 @@
             <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #818cf8; border-color: rgba(99, 102, 241, 0.3);">Tải lên & Phân tích</span>
           </div>
 
-          <div class="cards-grid">
-            <!-- Card 1: Upload Excel File(s) Rating -->
+          <div class="cards-grid" style="grid-template-columns: 1fr;">
+            <!-- Card 1: Upload Rating Excel Files -->
             <div class="card ai-card">
               <div class="card-header">
                 <div class="store-badge android" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border-color: rgba(99, 102, 241, 0.3);">
@@ -316,28 +316,9 @@
                   <input type="file" id="inputRatingFiles" accept=".xlsx, .xls" multiple style="display:none">
                   <div class="dropzone-icon">📁</div>
                   <div class="dropzone-text font-medium">Kéo thả file Excel vào đây hoặc <span class="browse-link">chọn file từ máy tính</span></div>
-                  <div class="dropzone-sub">Hỗ trợ chọn 1 hoặc nhiều file Excel (.xlsx, .xls)</div>
+                  <div class="dropzone-sub">Hỗ trợ chọn 1 hoặc nhiều file Excel (.xlsx, .xls) - Tự động phân loại 4 hành trình Daily, Lending, RM, 247</div>
                 </div>
                 <div id="listRatingFiles" class="file-chip-list"></div>
-              </div>
-            </div>
-
-            <!-- Card 2: Upload Dictionary File -->
-            <div class="card ai-card">
-              <div class="card-header">
-                <div class="store-badge ios" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3);">
-                  📖 File Từ Điển (Dictionary File)
-                </div>
-              </div>
-              <div class="form-group">
-                <label>Chọn hoặc Kéo thả file Từ điển (.xlsx, .csv, .txt) chứa từ khóa phân loại:</label>
-                <div class="file-dropzone" id="dropzoneDictFile">
-                  <input type="file" id="inputDictFile" accept=".xlsx, .xls, .csv, .txt" style="display:none">
-                  <div class="dropzone-icon">📚</div>
-                  <div class="dropzone-text font-medium">Kéo thả file Từ điển vào đây hoặc <span class="browse-link">chọn file từ máy tính</span></div>
-                  <div class="dropzone-sub">Hỗ trợ file từ khóa Tích cực / Tiêu cực / Chủ đề</div>
-                </div>
-                <div id="listDictFile" class="file-chip-list"></div>
               </div>
             </div>
           </div>

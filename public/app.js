@@ -739,15 +739,10 @@ if (navTabAI) navTabAI.addEventListener('click', () => switchMode('ai'));
 
 // Rating AI State & Elements
 let selectedRatingFiles = [];
-let selectedDictFile = null;
 
 const dropzoneRatingFiles = document.getElementById('dropzoneRatingFiles');
 const inputRatingFiles = document.getElementById('inputRatingFiles');
 const listRatingFiles = document.getElementById('listRatingFiles');
-
-const dropzoneDictFile = document.getElementById('dropzoneDictFile');
-const inputDictFile = document.getElementById('inputDictFile');
-const listDictFile = document.getElementById('listDictFile');
 
 const btnAnalyzeAI = document.getElementById('btnAnalyzeAI');
 const aiProgressSection = document.getElementById('aiProgressSection');
@@ -798,13 +793,6 @@ setupDropzone(dropzoneRatingFiles, inputRatingFiles, (files) => {
   renderFileChips();
 });
 
-setupDropzone(dropzoneDictFile, inputDictFile, (files) => {
-  if (files && files.length) {
-    selectedDictFile = files[0];
-  }
-  renderFileChips();
-});
-
 function renderFileChips() {
   if (listRatingFiles) {
     listRatingFiles.innerHTML = selectedRatingFiles.map((f, i) => `
@@ -814,24 +802,10 @@ function renderFileChips() {
       </div>
     `).join('');
   }
-
-  if (listDictFile) {
-    listDictFile.innerHTML = selectedDictFile ? `
-      <div class="file-chip" style="background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.3);">
-        <span>📚 ${escapeHtml(selectedDictFile.name)} (${(selectedDictFile.size / 1024).toFixed(1)} KB)</span>
-        <span class="file-chip-remove" onclick="removeDictFile()">×</span>
-      </div>
-    ` : '';
-  }
 }
 
 function removeRatingFile(idx) {
   selectedRatingFiles.splice(idx, 1);
-  renderFileChips();
-}
-
-function removeDictFile() {
-  selectedDictFile = null;
   renderFileChips();
 }
 
@@ -846,9 +820,6 @@ if (btnAnalyzeAI) {
     selectedRatingFiles.forEach(file => {
       formData.append('ratingFiles', file);
     });
-    if (selectedDictFile) {
-      formData.append('dictFile', selectedDictFile);
-    }
 
     btnAnalyzeAI.disabled = true;
     if (aiProgressSection) aiProgressSection.style.display = 'block';

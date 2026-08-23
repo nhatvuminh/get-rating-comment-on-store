@@ -1030,8 +1030,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* Stats Grid */
 .stats-grid {
   display: grid;
-  grid-template-columns: 200px 200px 1fr;
-  gap: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
 }
 
 .stats-grid-ai {

@@ -297,7 +297,7 @@ function fetchJsonWithRetry(url, headers, maxRetries = 3) {
   });
 }
 
-// Helper: Fetch paginated App Store reviews from Apple Storefront API with fast parallel batching
+// Helper: Fetch paginated App Store reviews from Apple Storefront API with fast parallel batching & redirect support
 async function fetchAppStoreReviewsFromAPI(country, appId, startDate, endDate, maxPages = 30) {
   const headers = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -311,24 +311,44 @@ async function fetchAppStoreReviewsFromAPI(country, appId, startDate, endDate, m
   const reviews = [];
   const limit = 20;
 
-  const fetchSinglePage = (offset) => {
-    return new Promise((resolve) => {
-      const url = `https://apps.apple.com/api/apps/v1/catalog/${targetCountry}/apps/${appId}/reviews?platform=iphone&l=vi&limit=${limit}&offset=${offset}`;
-      https.get(url, { headers }, (res) => {
-        if (res.statusCode !== 200) return resolve([]);
-        let d = '';
-        res.on('data', c => d += c);
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(d);
-            resolve(parsed.data || []);
-          } catch (e) { resolve([]); }
-        });
-      }).on('error', () => resolve([]));
+  const fetchSinglePage = (offset, retries = 2) => {
+    const url = `https://apps.apple.com/api/apps/v1/catalog/${targetCountry}/apps/${appId}/reviews?platform=iphone&l=vi&limit=${limit}&offset=${offset}`;
+    
+    const getWithRedirect = (targetUrl, depth = 0) => {
+      return new Promise((resolve) => {
+        if (depth > 5) return resolve([]);
+        https.get(targetUrl, { headers }, (res) => {
+          if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+            let loc = res.headers.location;
+            if (loc.startsWith('/')) loc = 'https://apps.apple.com' + loc;
+            return resolve(getWithRedirect(loc, depth + 1));
+          }
+          if (res.statusCode !== 200) return resolve([]);
+          let d = '';
+          res.on('data', c => d += c);
+          res.on('end', () => {
+            try {
+              const parsed = JSON.parse(d);
+              resolve(parsed.data || []);
+            } catch (e) { resolve([]); }
+          });
+        }).on('error', () => resolve([]));
+      });
+    };
+
+    return new Promise(async (resolve) => {
+      for (let r = 0; r <= retries; r++) {
+        const resData = await getWithRedirect(url);
+        if (Array.isArray(resData) && resData.length > 0) return resolve(resData);
+        if (r < retries) await new Promise(res => setTimeout(res, 200 * (r + 1)));
+      }
+      resolve([]);
     });
   };
 
   const BATCH_SIZE = 5;
+  let emptyBatchesCount = 0;
+
   for (let b = 0; b < maxPages; b += BATCH_SIZE) {
     const promises = [];
     for (let i = b; i < b + BATCH_SIZE && i < maxPages; i++) {
@@ -367,7 +387,12 @@ async function fetchAppStoreReviewsFromAPI(country, appId, startDate, endDate, m
       }
     }
 
-    if (totalBatchItems === 0) break;
+    if (totalBatchItems === 0) {
+      emptyBatchesCount++;
+      if (emptyBatchesCount >= 2) break;
+    } else {
+      emptyBatchesCount = 0;
+    }
   }
 
   return reviews;
@@ -426,7 +451,16 @@ function parseFlexibleDate(dateStr) {
     const day = parseInt(ddmmyyyy[1], 10);
     const month = parseInt(ddmmyyyy[2], 10) - 1;
     const year = parseInt(ddmmyyyy[3], 10);
-    return new Date(year, month, day);
+    return new Date(year, month, day, 0, 0, 0, 0);
+  }
+
+  // YYYY-MM-DD format check
+  const yyyymmdd = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (yyyymmdd) {
+    const year = parseInt(yyyymmdd[1], 10);
+    const month = parseInt(yyyymmdd[2], 10) - 1;
+    const day = parseInt(yyyymmdd[3], 10);
+    return new Date(year, month, day, 0, 0, 0, 0);
   }
   
   const d = new Date(str);

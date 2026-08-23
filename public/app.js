@@ -1036,8 +1036,6 @@ function renderAIResults(data) {
   `;
 
   switchAITableTab('negative');
-}
-
   aiResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 

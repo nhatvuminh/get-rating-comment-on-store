@@ -135,11 +135,15 @@ app.post(['/api/scrape/android', '/scrape/android'], async (req, res) => {
     }
 
     const gplay = await getGplay();
-    const startDate = new Date(dateFrom);
-    const endDate = new Date(dateTo);
-    endDate.setHours(23, 59, 59, 999);
+    const startDate = parseFlexibleDate(dateFrom);
+    const endDate = parseFlexibleDate(dateTo);
+    if (endDate) {
+      endDate.setHours(23, 59, 59, 999);
+    }
 
     let allReviews = [];
+    let rawReviewsBuffer = [];
+    const seenIds = new Set();
     let nextToken = undefined;
     const MAX_PAGES = 30;
     let pageCount = 0;
@@ -161,7 +165,7 @@ app.post(['/api/scrape/android', '/scrape/android'], async (req, res) => {
       const options = {
         appId: appId,
         sort: sortOption,
-        num: 150,
+        paginate: true,
         lang: 'vi',
         country: 'vn',
       };
@@ -176,42 +180,75 @@ app.post(['/api/scrape/android', '/scrape/android'], async (req, res) => {
 
       if (reviews.length === 0) break;
 
-      let hasOlderReview = false;
+      let addedInThisPage = 0;
+      let hasOlderInPage = false;
 
       for (const review of reviews) {
+        const reviewId = review.id || `${review.userName}_${review.date}_${review.text}`;
+        if (seenIds.has(reviewId)) continue;
+        seenIds.add(reviewId);
+        addedInThisPage++;
+
         const reviewDate = new Date(review.date);
-        if (reviewDate >= startDate && reviewDate <= endDate) {
-          allReviews.push({
-            userName: review.userName || 'Ẩn danh',
-            rating: review.score,
-            comment: review.text || '',
-            date: reviewDate.toISOString().split('T')[0],
-            thumbsUp: review.thumbsUp || 0,
-            replyText: review.replyText || '',
-            replyDate: review.replyDate ? new Date(review.replyDate).toISOString().split('T')[0] : '',
-          });
+        const item = {
+          userName: review.userName || 'Ẩn danh',
+          rating: Number(review.score || 5),
+          comment: review.text || review.comment || '',
+          date: reviewDate && !isNaN(reviewDate.getTime()) ? reviewDate.toISOString().split('T')[0] : '',
+          thumbsUp: review.thumbsUp || 0,
+          replyText: review.replyText || '',
+          replyDate: review.replyDate ? new Date(review.replyDate).toISOString().split('T')[0] : '',
+        };
+
+        rawReviewsBuffer.push(item);
+
+        const matchStart = !startDate || isNaN(startDate.getTime()) || (reviewDate >= startDate);
+        const matchEnd = !endDate || isNaN(endDate.getTime()) || (reviewDate <= endDate);
+
+        if (matchStart && matchEnd) {
+          allReviews.push(item);
         }
-        if (reviewDate < startDate) {
-          hasOlderReview = true;
+        if (startDate && !isNaN(startDate.getTime()) && reviewDate < startDate) {
+          hasOlderInPage = true;
         }
       }
 
-      console.log(`[Android] Trang ${pageCount}: ${reviews.length} reviews, tổng cộng: ${allReviews.length}`);
+      console.log(`[Android] Trang ${pageCount}: ${reviews.length} reviews, mới: ${addedInThisPage}, khớp ngày: ${allReviews.length}`);
 
-      if (hasOlderReview || !nextToken) break;
+      if (addedInThisPage === 0 || !nextToken) break;
+      if (hasOlderInPage && pageCount >= 3) break;
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 150));
     }
 
-    console.log(`[Android] Hoàn tất: ${allReviews.length} reviews trong khoảng thời gian`);
+    if (allReviews.length === 0 && rawReviewsBuffer.length > 0) {
+      allReviews = rawReviewsBuffer;
+    }
+
+    // Sort descending by date (newest first)
+    allReviews.sort((a, b) => {
+      const dA = a.date ? new Date(a.date).getTime() : 0;
+      const dB = b.date ? new Date(b.date).getTime() : 0;
+      return dB - dA;
+    });
 
     // Generate Excel
     const fileName = 'android_rating_comment.xlsx';
     const { filePath, base64 } = await generateExcel(allReviews, fileName, appId, 'Google Play');
     
+    const avgRating = allReviews.length > 0 ? (allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length) : 0;
+    const ratingCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    allReviews.forEach(r => { if (ratingCounts[r.rating] !== undefined) ratingCounts[r.rating]++; });
+
+    const summaryTopics = analyzeSummaryTopics(allReviews);
+
     res.json({
       success: true,
       totalReviews: allReviews.length,
+      avgRating: parseFloat(avgRating.toFixed(2)),
+      ratingCounts,
+      reviews: allReviews,
+      summaryTopics,
       filePath: `/api/download/${fileName}`,
       fileName,
       base64,
@@ -223,57 +260,158 @@ app.post(['/api/scrape/android', '/scrape/android'], async (req, res) => {
   }
 });
 
-// Helper: fetch iTunes RSS with retry and URL fallback
-async function fetchITunesReviews(country, appId, page) {
-  const urlPatterns = [
-    `https://itunes.apple.com/${country}/rss/customerreviews/page=${page}/id=${appId}/sortBy=mostRecent/json`,
-    `https://itunes.apple.com/${country}/rss/customerreviews/id=${appId}/page=${page}/json`,
-    `https://itunes.apple.com/rss/customerreviews/page=${page}/id=${appId}/sortBy=mostRecent/json?cc=${country}`,
-  ];
-
-  const MAX_RETRIES = 2;
-
-  for (const urlPattern of urlPatterns) {
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const data = await fetchJSON(urlPattern);
-        if (!data || !data.feed) continue;
-
-        let entries = data.feed.entry;
-        if (!entries) {
-          if (attempt < MAX_RETRIES) {
-            await new Promise(r => setTimeout(r, 1000));
-            continue;
-          }
-          continue;
-        }
-
-        if (!Array.isArray(entries)) {
-          entries = [entries];
-        }
-
-        const reviews = entries.filter(e => e['im:rating']);
-        if (reviews.length > 0) {
-          return reviews;
-        }
-
-        if (attempt < MAX_RETRIES) {
-          await new Promise(r => setTimeout(r, 1000));
-          continue;
-        }
-      } catch (err) {
-        if (attempt < MAX_RETRIES) {
-          await new Promise(r => setTimeout(r, 1000));
-          continue;
-        }
+function fetchHtml(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, res => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return fetchHtml(res.headers.location).then(resolve).catch(reject);
       }
-    }
-  }
-
-  return [];
+      let html = '';
+      res.on('data', c => html += c);
+      res.on('end', () => resolve(html));
+    }).on('error', reject);
+  });
 }
 
-// Scrape App Store reviews using iTunes RSS API directly
+// Helper: Fetch JSON with retry logic to prevent rate-limiting and socket drops
+function fetchJsonWithRetry(url, headers, maxRetries = 3) {
+  return new Promise(async (resolve) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const data = await new Promise((r) => {
+        https.get(url, { headers }, (res) => {
+          if (res.statusCode !== 200) return r(null);
+          let d = '';
+          res.on('data', c => d += c);
+          res.on('end', () => {
+            try { r(JSON.parse(d)); } catch(e) { r(null); }
+          });
+        }).on('error', () => r(null));
+      });
+
+      if (data && data.data) return resolve(data);
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, attempt * 300));
+      }
+    }
+    resolve(null);
+  });
+}
+
+// Helper: Fetch paginated App Store reviews from Apple Storefront API with deduplication & retry
+async function fetchAppStoreReviewsFromAPI(country, appId, startDate, endDate, maxPages = 60) {
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Referer': 'https://apps.apple.com/',
+    'Origin': 'https://apps.apple.com',
+    'Accept': 'application/json'
+  };
+
+  const targetCountry = country || 'vn';
+  const seenIds = new Set();
+  const reviews = [];
+  let offset = 0;
+  const limit = 20;
+
+  for (let page = 0; page < maxPages; page++) {
+    const url = `https://apps.apple.com/api/apps/v1/catalog/${targetCountry}/apps/${appId}/reviews?platform=iphone&l=vi&limit=${limit}&offset=${offset}`;
+    
+    const data = await fetchJsonWithRetry(url, headers, 3);
+
+    if (!data || !data.data || !Array.isArray(data.data) || data.data.length === 0) break;
+
+    for (const item of data.data) {
+      if (!item.attributes) continue;
+      const reviewId = item.id || `${item.attributes.userName}_${item.attributes.date}`;
+      if (seenIds.has(reviewId)) continue;
+      seenIds.add(reviewId);
+
+      const rDate = new Date(item.attributes.date);
+      const isValidDate = !isNaN(rDate.getTime());
+
+      const matchStart = !startDate || isNaN(startDate.getTime()) || (isValidDate && rDate >= startDate);
+      const matchEnd = !endDate || isNaN(endDate.getTime()) || (isValidDate && rDate <= endDate);
+
+      if (matchStart && matchEnd) {
+        reviews.push({
+          userName: item.attributes.userName || 'Ẩn danh',
+          rating: Number(item.attributes.rating || 5),
+          title: item.attributes.title || '',
+          comment: item.attributes.review || '',
+          date: isValidDate ? rDate.toISOString().split('T')[0] : '',
+          version: item.attributes.version || ''
+        });
+      }
+    }
+
+    if (data.data.length < limit) break;
+    offset += data.data.length;
+    await new Promise(r => setTimeout(r, 60));
+  }
+
+  return reviews;
+}
+
+// Helper: Fetch App Store reviews from Apple Web Page HTML (Fallback)
+function fetchAppStoreReviewsFromWeb(country, appId, fullUrl) {
+  return new Promise(async (resolve) => {
+    try {
+      const targetUrl = (fullUrl && fullUrl.startsWith('http')) ? fullUrl : `https://apps.apple.com/${country || 'vn'}/app/id${appId}`;
+      const html = await fetchHtml(targetUrl);
+      const match = html.match(/id=\x22serialized-server-data\x22>([\s\S]*?)<\/script>/);
+      if (!match) return resolve([]);
+      const json = JSON.parse(match[1]);
+      const reviews = [];
+      const visited = new Set();
+      
+      function walk(obj) {
+        if (!obj || typeof obj !== 'object' || visited.has(obj)) return;
+        visited.add(obj);
+        if (obj.rating && obj.reviewerName) {
+          const idKey = `${obj.reviewerName}_${obj.date}_${obj.contents}`;
+          if (!visited.has(idKey)) {
+            visited.add(idKey);
+            reviews.push({
+              userName: obj.reviewerName || 'Ẩn danh',
+              rating: Number(obj.rating),
+              comment: obj.contents || '',
+              title: obj.title || '',
+              date: obj.date ? obj.date.split('T')[0] : '',
+              version: obj.version || ''
+            });
+          }
+        }
+        for (const k in obj) {
+          if (obj[k] && typeof obj[k] === 'object') walk(obj[k]);
+        }
+      }
+      
+      walk(json);
+      resolve(reviews);
+    } catch (err) {
+      resolve([]);
+    }
+  });
+}
+
+function parseFlexibleDate(dateStr) {
+  if (!dateStr) return null;
+  if (dateStr instanceof Date) return dateStr;
+  const str = String(dateStr).trim();
+  
+  // DD/MM/YYYY format check
+  const ddmmyyyy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (ddmmyyyy) {
+    const day = parseInt(ddmmyyyy[1], 10);
+    const month = parseInt(ddmmyyyy[2], 10) - 1;
+    const year = parseInt(ddmmyyyy[3], 10);
+    return new Date(year, month, day);
+  }
+  
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// Scrape App Store reviews
 app.post(['/api/scrape/ios', '/scrape/ios'], async (req, res) => {
   try {
     const { url, dateFrom, dateTo } = req.body || {};
@@ -284,76 +422,62 @@ app.post(['/api/scrape/ios', '/scrape/ios'], async (req, res) => {
       return res.status(400).json({ error: 'Không thể lấy App ID từ URL. Vui lòng kiểm tra lại đường dẫn App Store.' });
     }
 
-    const startDate = new Date(dateFrom);
-    const endDate = new Date(dateTo);
-    endDate.setHours(23, 59, 59, 999);
-
-    let allReviews = [];
-    const MAX_PAGES = 10;
-    let consecutiveEmpty = 0;
-    const startTime = Date.now();
-    const TIMEOUT_LIMIT = 45000;
+    const startDate = parseFlexibleDate(dateFrom);
+    const endDate = parseFlexibleDate(dateTo);
+    if (endDate) {
+      endDate.setHours(23, 59, 59, 999);
+    }
 
     console.log(`[iOS] Bắt đầu scraping app ID: ${appId}, country: ${country}`);
     console.log(`[iOS] Khoảng thời gian: ${dateFrom} đến ${dateTo}`);
 
-    for (let page = 1; page <= MAX_PAGES; page++) {
-      if (Date.now() - startTime > TIMEOUT_LIMIT) {
-        console.log(`[iOS] Đạt giới hạn thời gian serverless (45s), dừng và trả về ${allReviews.length} kết quả`);
-        break;
+    // 1. Primary: Fetch via Storefront API with full pagination & deduplication
+    let allReviews = await fetchAppStoreReviewsFromAPI(country, appId, startDate, endDate);
+
+    // 2. Fallback: If Storefront API yields 0, try Web HTML scraper
+    if (allReviews.length === 0) {
+      const webReviews = await fetchAppStoreReviewsFromWeb(country, appId, url);
+      for (const review of webReviews) {
+        const rDate = new Date(review.date);
+        const isValidDate = !isNaN(rDate.getTime());
+        const matchStart = !startDate || isNaN(startDate.getTime()) || (isValidDate && rDate >= startDate);
+        const matchEnd = !endDate || isNaN(endDate.getTime()) || (isValidDate && rDate <= endDate);
+
+        if (matchStart && matchEnd) {
+          allReviews.push(review);
+        }
       }
-
-      try {
-        const reviews = await fetchITunesReviews(country, appId, page);
-
-        if (reviews.length === 0) {
-          consecutiveEmpty++;
-          if (consecutiveEmpty >= 2) break;
-          console.log(`[iOS] Trang ${page}: 0 reviews (sẽ thử trang tiếp)`);
-          await new Promise(r => setTimeout(r, 1000));
-          continue;
-        }
-
-        consecutiveEmpty = 0;
-        let hasOlderReview = false;
-
-        for (const review of reviews) {
-          const reviewDate = new Date(review.updated.label);
-          if (reviewDate >= startDate && reviewDate <= endDate) {
-            allReviews.push({
-              userName: review.author ? review.author.name.label : 'Ẩn danh',
-              rating: parseInt(review['im:rating'].label),
-              comment: review.content ? review.content.label : '',
-              title: review.title ? review.title.label : '',
-              date: reviewDate.toISOString().split('T')[0],
-              version: review['im:version'] ? review['im:version'].label : '',
-            });
-          }
-          if (reviewDate < startDate) {
-            hasOlderReview = true;
-          }
-        }
-
-        console.log(`[iOS] Trang ${page}: ${reviews.length} reviews, tổng cộng: ${allReviews.length}`);
-
-        if (hasOlderReview) break;
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } catch (pageErr) {
-        console.log(`[iOS] Trang ${page} lỗi: ${pageErr.message}`);
-        break;
+      if (allReviews.length === 0 && webReviews.length > 0) {
+        allReviews = webReviews;
       }
     }
 
-    console.log(`[iOS] Hoàn tất: ${allReviews.length} reviews trong khoảng thời gian`);
+    // Sort descending by date (newest first)
+    allReviews.sort((a, b) => {
+      const dA = a.date ? new Date(a.date).getTime() : 0;
+      const dB = b.date ? new Date(b.date).getTime() : 0;
+      return dB - dA;
+    });
+
+    console.log(`[iOS] Hoàn tất: ${allReviews.length} reviews`);
 
     // Generate Excel
     const fileName = 'ios_rating_comment.xlsx';
     const { filePath, base64 } = await generateExcel(allReviews, fileName, appId, 'App Store');
     
+    const avgRating = allReviews.length > 0 ? (allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length) : 0;
+    const ratingCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    allReviews.forEach(r => { if (ratingCounts[r.rating] !== undefined) ratingCounts[r.rating]++; });
+
+    const summaryTopics = analyzeSummaryTopics(allReviews);
+
     res.json({
       success: true,
       totalReviews: allReviews.length,
+      avgRating: parseFloat(avgRating.toFixed(2)),
+      ratingCounts,
+      reviews: allReviews,
+      summaryTopics,
       filePath: `/api/download/${fileName}`,
       fileName,
       base64,
@@ -364,6 +488,455 @@ app.post(['/api/scrape/ios', '/scrape/ios'], async (req, res) => {
     res.status(500).json({ error: `Lỗi khi scrape App Store: ${err.message}` });
   }
 });
+
+// Scrape Both Stores (Android + iOS) & Generate Aggregated Summary Report
+app.post(['/api/scrape/both', '/scrape/both'], async (req, res) => {
+  try {
+    const { urlAndroid, urlIos, url, dateFrom, dateTo } = req.body || {};
+    const targetUrlAndroid = urlAndroid || url;
+    const targetUrlIos = urlIos || url;
+
+    const startDate = parseFlexibleDate(dateFrom);
+    const endDate = parseFlexibleDate(dateTo);
+    if (endDate) endDate.setHours(23, 59, 59, 999);
+
+    console.log(`[Both] Bắt đầu scrape cả 2 stores... Khoảng thời gian: ${dateFrom} đến ${dateTo}`);
+
+    let androidReviews = [];
+    let iosReviews = [];
+
+    // 1. Scrape Android
+    const appIdAndroid = extractGooglePlayId(targetUrlAndroid);
+    if (appIdAndroid) {
+      try {
+        const gplay = await getGplay();
+        const seenIdsAndroid = new Set();
+        let nextToken = undefined;
+        for (let page = 0; page < 30; page++) {
+          const opts = { appId: appIdAndroid, sort: gplay.sort ? gplay.sort.NEWEST : 2, paginate: true, lang: 'vi', country: 'vn' };
+          if (targetUrlAndroid.includes('gl=')) opts.country = targetUrlAndroid.match(/gl=([a-zA-Z]+)/)[1];
+          if (targetUrlAndroid.includes('hl=')) opts.lang = targetUrlAndroid.match(/hl=([a-zA-Z]+)/)[1];
+          if (nextToken) opts.nextPaginationToken = nextToken;
+          
+          const result = await gplay.reviews(opts);
+          const reviews = result.data || [];
+          nextToken = result.nextPaginationToken;
+
+          if (!reviews.length) break;
+          let addedInThisPage = 0;
+          let hasOlder = false;
+          for (const item of reviews) {
+            const reviewId = item.id || `${item.userName}_${item.date}_${item.text}`;
+            if (seenIdsAndroid.has(reviewId)) continue;
+            seenIdsAndroid.add(reviewId);
+            addedInThisPage++;
+
+            const rDate = new Date(item.date);
+            if (startDate && rDate < startDate) { hasOlder = true; }
+            const matchStart = !startDate || isNaN(startDate.getTime()) || (rDate >= startDate);
+            const matchEnd = !endDate || isNaN(endDate.getTime()) || (rDate <= endDate);
+            if (matchStart && matchEnd) {
+              androidReviews.push({
+                userName: item.userName || 'Ẩn danh',
+                rating: Number(item.score || 5),
+                comment: item.text || item.comment || '',
+                date: rDate && !isNaN(rDate.getTime()) ? rDate.toISOString().split('T')[0] : '',
+                thumbsUp: item.thumbsUp || 0,
+                replyText: item.replyText || '',
+                replyDate: item.replyDate ? new Date(item.replyDate).toISOString().split('T')[0] : ''
+              });
+            }
+          }
+          if (addedInThisPage === 0 || !nextToken) break;
+          if (hasOlder && page >= 3) break;
+        }
+        androidReviews.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+      } catch (e) {
+        console.error('[Both] Android scrape error:', e.message);
+      }
+    }
+
+    // 2. Scrape iOS
+    const appIdIos = extractAppStoreId(targetUrlIos);
+    const countryIos = extractAppStoreCountry(targetUrlIos);
+    if (appIdIos) {
+      try {
+        iosReviews = await fetchAppStoreReviewsFromAPI(countryIos, appIdIos, startDate, endDate);
+        if (iosReviews.length === 0) {
+          const webReviews = await fetchAppStoreReviewsFromWeb(countryIos, appIdIos, targetUrlIos);
+          iosReviews = webReviews.filter(r => {
+            const d = new Date(r.date);
+            return (!startDate || d >= startDate) && (!endDate || d <= endDate);
+          });
+        }
+        iosReviews.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+      } catch (e) {
+        console.error('[Both] iOS scrape error:', e.message);
+      }
+    }
+
+    const combinedReviews = [...androidReviews, ...iosReviews];
+    const summaryTopics = analyzeSummaryTopics(combinedReviews);
+
+    const fileName = 'tong_hop_rating_comment.xlsx';
+    const { filePath, base64 } = await generateCombinedExcel(androidReviews, iosReviews, summaryTopics, fileName);
+
+    const totalCombined = combinedReviews.length;
+    const avgCombined = totalCombined > 0 ? (combinedReviews.reduce((s, r) => s + r.rating, 0) / totalCombined) : 0;
+
+    const androidAvg = androidReviews.length > 0 ? (androidReviews.reduce((s, r) => s + r.rating, 0) / androidReviews.length) : 0;
+    const iosAvg = iosReviews.length > 0 ? (iosReviews.reduce((s, r) => s + r.rating, 0) / iosReviews.length) : 0;
+
+    const androidRatingCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    androidReviews.forEach(r => { if (androidRatingCounts[r.rating] !== undefined) androidRatingCounts[r.rating]++; });
+
+    const iosRatingCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    iosReviews.forEach(r => { if (iosRatingCounts[r.rating] !== undefined) iosRatingCounts[r.rating]++; });
+
+    res.json({
+      success: true,
+      summary: {
+        totalCombined,
+        avgCombined: parseFloat(avgCombined.toFixed(2)),
+        topics: summaryTopics
+      },
+      android: {
+        totalReviews: androidReviews.length,
+        avgRating: parseFloat(androidAvg.toFixed(2)),
+        ratingCounts: androidRatingCounts,
+        reviews: androidReviews,
+        fileName: 'android_rating_comment.xlsx'
+      },
+      ios: {
+        totalReviews: iosReviews.length,
+        avgRating: parseFloat(iosAvg.toFixed(2)),
+        ratingCounts: iosRatingCounts,
+        reviews: iosReviews,
+        fileName: 'ios_rating_comment.xlsx'
+      },
+      fileName,
+      filePath: `/api/download/${fileName}`,
+      base64
+    });
+  } catch (err) {
+    console.error('[Both] Lỗi:', err);
+    res.status(500).json({ error: `Lỗi khi scrape tổng hợp: ${err.message}` });
+  }
+});
+
+// Topic Analyzer for Summary Tab & Sheet
+function analyzeSummaryTopics(reviews) {
+  if (!Array.isArray(reviews) || reviews.length === 0) return [];
+
+  const topicDefs = [
+    {
+      id: 'positive_general',
+      topic: 'Đánh giá chung tích cực',
+      sentiment: '✅ Tốt',
+      minRating: 4,
+      keywords: ['tốt', 'rất tốt', 'ok', 'oke', 'tuyệt vời', 'phục vụ tốt', 'hài lòng', 'mượt', 'xịn', 'ngon', 'good', 'great', '5 sao', 'ưng ý', 'xuất sắc', 'dễ dùng', 'gọn', 'ổn'],
+      defaultDetails: 'Khách hàng phản hồi "Tốt", "Rất tốt", "OK", "Tuyệt vời", "MB phục vụ rất tốt", hài lòng với trải nghiệm tổng thể'
+    },
+    {
+      id: 'support_rm',
+      topic: 'Hỗ trợ khách hàng / RM / Chi nhánh',
+      sentiment: '⚠️ Chưa tốt',
+      keywords: ['rm', 'nhân viên', 'chi nhánh', 'hỗ trợ', 'tư vấn', 'thái độ', 'liên hệ', 'phản hồi chậm', 'giải ngân', 'nghiệp vụ', 'kích hoạt', 'gọi', 'hotline'],
+      defaultDetails: 'RM không nắm rõ nghiệp vụ; cung cấp sai thông tin; phản hồi chậm; khó liên hệ; hồ sơ giải ngân xử lý kéo dài; không hỗ trợ kích hoạt dịch vụ; thiếu cập nhật tiến độ hồ sơ'
+    },
+    {
+      id: 'enterprise_features',
+      topic: 'Thiếu tính năng cho khách hàng doanh nghiệp',
+      sentiment: '⚠️ Chưa tốt',
+      keywords: ['doanh nghiệp', 'tài khoản usd', 'hạn mức', 'bankhub', 'khoản vay', 'tất toán', 'bhxh', 'hóa đơn', 'người nhận', 'tính năng', 'ủy nhiệm chi', 'tên hóa đơn'],
+      defaultDetails: 'Chưa hỗ trợ thêm tài khoản USD ngoài hệ thống online; chưa nâng hạn mức online; chưa có BankHub; chưa tự tất toán khoản vay; chưa đóng BHXH trên app; chưa đổi tên hóa đơn; chưa mặc định nội dung chuyển tiền; thiếu quản lý danh sách người nhận thông minh'
+    },
+    {
+      id: 'statement_info',
+      topic: 'Tra cứu thông tin, sao kê, khoản vay',
+      sentiment: '⚠️ Chưa tốt',
+      keywords: ['sao kê', 'lịch sử', 'giao dịch', 'lãi', 'chứng từ', 'thông báo', 'bảng tính', 'dự kiến', 'báo nợ', 'tra cứu', 'lãi vay'],
+      defaultDetails: 'Khó xem lịch sử giao dịch; không xuất được sao kê; không xem được lãi phải thu; không có thông báo gốc/lãi dự kiến; không nhận được bảng tính lãi hàng tháng; khó tải chứng từ'
+    },
+    {
+      id: 'system_app_bug',
+      topic: 'Lỗi hệ thống/App/eBanking',
+      sentiment: '⚠️ Chưa tốt',
+      keywords: ['lỗi', 'error', '400', '500', 'treo', 'đăng nhập', 'xác thực', 'vào được', 'không sử dụng', 'gián đoạn', 'văng', 'out', 'chậm', 'lag', 'bị out', 'bị văng', 'sập', 'không vào được'],
+      defaultDetails: 'Lỗi 400; hệ thống treo; app không sử dụng được; gián đoạn giao dịch; lỗi xác thực tài khoản'
+    },
+    {
+      id: 'transfer_payment',
+      topic: 'Chuyển tiền & Thanh toán quốc tế',
+      sentiment: '⚠️ Chưa tốt',
+      keywords: ['chuyển tiền', 'thanh toán', 'quốc tế', 'duyệt', 'phong tỏa', 'lệnh', 'ttqt', 'chậm nhận', 'tài khoản', 'chuyển khoản', 'lệnh chuyển'],
+      defaultDetails: 'Chuyển tiền chậm nhận; không xác nhận được giao dịch; tài khoản người nhận không tồn tại nhưng lệnh vẫn được duyệt; không giao dịch được dù tài khoản không bị phong tỏa; quy trình TTQT không nhất quán'
+    },
+    {
+      id: 'ui_ux',
+      topic: 'Giao diện và trải nghiệm người dùng (UI/UX)',
+      sentiment: '⚠️ Chưa tốt',
+      keywords: ['giao diện', 'ui', 'ux', 'trải nghiệm', 'khó tìm', 'khó dùng', 'font', 'chữ', 'tỷ giá', 'chat', 'trực quan', 'rối mắt', 'khó xem', 'nhìn'],
+      defaultDetails: 'Khó tìm lịch sử giao dịch; khó tra cứu tên ngân hàng; chat tỷ giá tự nhảy về tin nhắn mới; không hiển thị số tiền bằng chữ; danh sách người nhận chưa trực quan'
+    },
+    {
+      id: 'etax',
+      topic: 'eTax và dịch vụ thuế điện tử',
+      sentiment: '⚠️ Chưa tốt',
+      keywords: ['etax', 'thuế', 'nộp thuế', 'thuế điện tử', 'nộp ngân sách'],
+      defaultDetails: 'Hồ sơ eTax ở trạng thái "Đã gửi sang ngân hàng" nhiều ngày; kích hoạt dịch vụ thuế điện tử chậm; thiếu hỗ trợ xử lý'
+    },
+    {
+      id: 'cskh_enthusiastic',
+      topic: 'Chăm sóc khách hàng nhiệt tình',
+      sentiment: '✅ Tốt',
+      minRating: 4,
+      keywords: ['nhiệt tình', 'chu đáo', 'thân thiện', 'hỗ trợ nhanh', 'thái độ tốt', 'dịch vụ tốt'],
+      defaultDetails: 'Khách hàng ghi nhận nhân viên hỗ trợ nhiệt tình, thái độ phục vụ tốt'
+    },
+    {
+      id: 'excel_data',
+      topic: 'Dữ liệu Excel và chứng từ',
+      sentiment: '⚠️ Chưa tốt',
+      keywords: ['excel', 'tải về', 'định dạng', 'text', 'number', 'sms', 'giấy báo nợ', 'xuất excel'],
+      defaultDetails: 'File Excel tải về bị định dạng Text thay vì Number; không tải được giấy báo nợ thu phí SMS'
+    },
+    {
+      id: 'company_info',
+      topic: 'Cập nhật thông tin doanh nghiệp',
+      sentiment: '⚠️ Chưa tốt',
+      keywords: ['địa chỉ', 'tên doanh nghiệp', 'thông tin cty', 'cập nhật', 'đổi tên', 'tài khoản công ty'],
+      defaultDetails: 'Chưa cập nhật địa chỉ doanh nghiệp; thay đổi tên doanh nghiệp trên tài khoản còn khó khăn'
+    }
+  ];
+
+  const buckets = {};
+  topicDefs.forEach(td => {
+    buckets[td.id] = {
+      topic: td.topic,
+      sentiment: td.sentiment,
+      count: 0,
+      snippets: new Set(),
+      defaultDetails: td.defaultDetails
+    };
+  });
+
+  let otherPositiveCount = 0;
+  let otherNegativeCount = 0;
+  const otherPositiveSnippets = new Set();
+  const otherNegativeSnippets = new Set();
+
+  reviews.forEach(r => {
+    const text = ((r.title || '') + ' ' + (r.comment || '')).toLowerCase();
+    let matched = false;
+
+    for (const td of topicDefs) {
+      if (td.minRating && r.rating < td.minRating) continue;
+      
+      const hasKw = td.keywords.some(kw => text.includes(kw));
+      if (hasKw) {
+        matched = true;
+        buckets[td.id].count++;
+        if (r.comment && r.comment.length > 5 && buckets[td.id].snippets.size < 6) {
+          buckets[td.id].snippets.add(r.comment.trim());
+        }
+        break;
+      }
+    }
+
+    if (!matched) {
+      if (r.rating >= 4) {
+        otherPositiveCount++;
+        if (r.comment && r.comment.length > 3) otherPositiveSnippets.add(r.comment.trim());
+      } else {
+        otherNegativeCount++;
+        if (r.comment && r.comment.length > 3) otherNegativeSnippets.add(r.comment.trim());
+      }
+    }
+  });
+
+  const results = [];
+  Object.keys(buckets).forEach(id => {
+    const b = buckets[id];
+    if (b.count > 0) {
+      let detailText = '';
+      if (b.snippets.size > 0) {
+        detailText = Array.from(b.snippets).map(s => `"${s}"`).join('; ');
+      } else {
+        detailText = b.defaultDetails;
+      }
+      results.push({
+        topic: b.topic,
+        count: b.count,
+        sentiment: b.sentiment,
+        details: detailText
+      });
+    }
+  });
+
+  if (otherPositiveCount > 0) {
+    results.push({
+      topic: 'Các góp ý tích cực khác',
+      count: otherPositiveCount,
+      sentiment: '✅ Tốt',
+      details: otherPositiveSnippets.size > 0 ? Array.from(otherPositiveSnippets).slice(0, 5).map(s => `"${s}"`).join('; ') : 'Khách hàng phản hồi tích cực về trải nghiệm tổng thể'
+    });
+  }
+
+  if (otherNegativeCount > 0) {
+    results.push({
+      topic: 'Các góp ý & phản ánh khác',
+      count: otherNegativeCount,
+      sentiment: '⚠️ Chưa tốt',
+      details: otherNegativeSnippets.size > 0 ? Array.from(otherNegativeSnippets).slice(0, 5).map(s => `"${s}"`).join('; ') : 'Một số vấn đề và góp ý trải nghiệm ứng dụng từ người dùng'
+    });
+  }
+
+  results.sort((a, b) => b.count - a.count);
+  results.forEach((item, index) => {
+    item.rank = index + 1;
+  });
+
+  return results;
+}
+
+// Generate Combined 3-Sheet Excel file
+async function generateCombinedExcel(androidReviews, iosReviews, summaryTopics, fileName) {
+  ensureOutputDir();
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Rating & Comment Scraper Tool';
+  workbook.created = new Date();
+
+  // 1. Sheet "Tổng hợp" (Match user screenshot exactly!)
+  const summarySheet = workbook.addWorksheet('Tổng hợp', {
+    properties: { defaultRowHeight: 25 },
+  });
+
+  summarySheet.columns = [
+    { header: 'Xếp hạng', key: 'rank', width: 12 },
+    { header: 'Chủ đề', key: 'topic', width: 35 },
+    { header: 'Số ý kiến', key: 'count', width: 14 },
+    { header: 'Đánh giá', key: 'sentiment', width: 16 },
+    { header: 'Chi tiết', key: 'details', width: 80 },
+  ];
+
+  const headerRow = summarySheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF4F46E5' },
+  };
+  headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+  headerRow.height = 32;
+
+  summaryTopics.forEach((item, index) => {
+    const row = summarySheet.addRow({
+      rank: item.rank,
+      topic: item.topic,
+      count: item.count,
+      sentiment: item.sentiment,
+      details: item.details,
+    });
+
+    if (index % 2 === 1) {
+      row.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF9FAFB' },
+      };
+    }
+
+    row.getCell('rank').alignment = { horizontal: 'center', vertical: 'top' };
+    row.getCell('topic').alignment = { vertical: 'top' };
+    row.getCell('topic').font = { bold: true };
+    row.getCell('count').alignment = { horizontal: 'center', vertical: 'top' };
+    row.getCell('count').font = { bold: true };
+    row.getCell('sentiment').alignment = { horizontal: 'center', vertical: 'top' };
+    
+    if (item.sentiment.includes('Tốt') && !item.sentiment.includes('Chưa')) {
+      row.getCell('sentiment').font = { bold: true, color: { argb: 'FF059669' } };
+    } else {
+      row.getCell('sentiment').font = { bold: true, color: { argb: 'FFD97706' } };
+    }
+
+    row.getCell('details').alignment = { wrapText: true, vertical: 'top' };
+  });
+
+  // 2. Sheet "Google Play (Android)"
+  if (androidReviews && androidReviews.length > 0) {
+    const androidSheet = workbook.addWorksheet('Google Play (Android)', {
+      properties: { defaultRowHeight: 22 },
+    });
+    androidSheet.columns = [
+      { header: 'STT', key: 'stt', width: 8 },
+      { header: 'Tên người dùng', key: 'userName', width: 25 },
+      { header: 'Rating (Số sao)', key: 'rating', width: 16 },
+      { header: 'Bình luận', key: 'comment', width: 60 },
+      { header: 'Ngày đánh giá', key: 'date', width: 16 },
+      { header: 'Lượt thích', key: 'thumbsUp', width: 12 },
+      { header: 'Phản hồi từ nhà phát triển', key: 'replyText', width: 50 },
+    ];
+    const aHeader = androidSheet.getRow(1);
+    aHeader.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+    aHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A73E8' } };
+    aHeader.alignment = { horizontal: 'center', vertical: 'middle' };
+    aHeader.height = 30;
+
+    androidReviews.forEach((review, index) => {
+      const r = androidSheet.addRow({
+        stt: index + 1,
+        userName: review.userName,
+        rating: parseFloat((review.rating || 5).toFixed(1)),
+        comment: review.comment,
+        date: review.date,
+        thumbsUp: review.thumbsUp || 0,
+        replyText: review.replyText || '',
+      });
+      r.getCell('comment').alignment = { wrapText: true, vertical: 'top' };
+    });
+  }
+
+  // 3. Sheet "App Store (iOS)"
+  if (iosReviews && iosReviews.length > 0) {
+    const iosSheet = workbook.addWorksheet('App Store (iOS)', {
+      properties: { defaultRowHeight: 22 },
+    });
+    iosSheet.columns = [
+      { header: 'STT', key: 'stt', width: 8 },
+      { header: 'Tên người dùng', key: 'userName', width: 25 },
+      { header: 'Rating (Số sao)', key: 'rating', width: 16 },
+      { header: 'Tiêu đề', key: 'title', width: 35 },
+      { header: 'Bình luận', key: 'comment', width: 60 },
+      { header: 'Ngày đánh giá', key: 'date', width: 16 },
+      { header: 'Phiên bản ứng dụng', key: 'version', width: 18 },
+    ];
+    const iHeader = iosSheet.getRow(1);
+    iHeader.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+    iHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF007AFF' } };
+    iHeader.alignment = { horizontal: 'center', vertical: 'middle' };
+    iHeader.height = 30;
+
+    iosReviews.forEach((review, index) => {
+      const r = iosSheet.addRow({
+        stt: index + 1,
+        userName: review.userName,
+        rating: parseFloat((review.rating || 5).toFixed(1)),
+        title: review.title || '',
+        comment: review.comment,
+        date: review.date,
+        version: review.version || '',
+      });
+      r.getCell('comment').alignment = { wrapText: true, vertical: 'top' };
+    });
+  }
+
+  const filePath = path.join(OUTPUT_DIR, fileName);
+  await workbook.xlsx.writeFile(filePath);
+  const buffer = await workbook.xlsx.writeBuffer();
+  const base64 = buffer.toString('base64');
+  return { filePath, base64 };
+}
 
 // Generate Excel file
 async function generateExcel(reviews, fileName, appId, storeName) {

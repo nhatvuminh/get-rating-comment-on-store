@@ -54,15 +54,6 @@ function formatDate(date) {
   return date.toISOString().split('T')[0];
 }
 
-// Quick date buttons
-document.querySelectorAll('.btn-chip[data-days]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.btn-chip').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    setDateRange(parseInt(btn.dataset.days));
-  });
-});
-
 // ============================================
 // Config Management
 // ============================================
@@ -200,146 +191,485 @@ function hideProgress() {
   progressBar.style.width = '0%';
 }
 
+let activeResults = {};
+
+// Tab switching elements & handlers
+const tabBtnSummary = document.getElementById('tabBtnSummary');
+const tabBtnAndroid = document.getElementById('tabBtnAndroid');
+const tabBtnIos = document.getElementById('tabBtnIos');
+const tabContentSummary = document.getElementById('tabContentSummary');
+const tabContentAndroid = document.getElementById('tabContentAndroid');
+const tabContentIos = document.getElementById('tabContentIos');
+const summaryTabCount = document.getElementById('summaryTabCount');
+const androidTabCount = document.getElementById('androidTabCount');
+const iosTabCount = document.getElementById('iosTabCount');
+const summaryResultsWrapper = document.getElementById('summaryResultsWrapper');
+const androidResultsWrapper = document.getElementById('androidResultsWrapper');
+const iosResultsWrapper = document.getElementById('iosResultsWrapper');
+
+function switchTab(tabName) {
+  [tabBtnSummary, tabBtnAndroid, tabBtnIos].forEach(btn => {
+    if (btn) btn.classList.remove('active');
+  });
+  [tabContentSummary, tabContentAndroid, tabContentIos].forEach(content => {
+    if (content) content.classList.remove('active');
+  });
+
+  if (tabName === 'summary' && tabBtnSummary && tabContentSummary) {
+    tabBtnSummary.classList.add('active');
+    tabContentSummary.classList.add('active');
+  } else if (tabName === 'ios' && tabBtnIos && tabContentIos) {
+    tabBtnIos.classList.add('active');
+    tabContentIos.classList.add('active');
+  } else if (tabBtnAndroid && tabContentAndroid) {
+    tabBtnAndroid.classList.add('active');
+    tabContentAndroid.classList.add('active');
+  }
+}
+
+if (tabBtnSummary) tabBtnSummary.addEventListener('click', () => switchTab('summary'));
+if (tabBtnAndroid) tabBtnAndroid.addEventListener('click', () => switchTab('android'));
+if (tabBtnIos) tabBtnIos.addEventListener('click', () => switchTab('ios'));
+
 async function scrape(platform) {
   if (!validateInputs(platform)) return;
 
   setButtonsDisabled(true);
-  resultsGrid.innerHTML = '';
   resultsSection.style.display = 'none';
 
-  const results = [];
-
   try {
-    if (platform === 'android' || platform === 'both') {
-      showProgress('Đang lấy đánh giá từ Google Play...', 30, 'Quá trình này có thể mất 1-2 phút');
+    if (platform === 'both') {
+      showProgress('Đang lấy và tổng hợp dữ liệu từ cả 2 stores...', 40, 'Hệ thống đang cào dữ liệu và phân tích nhóm chủ đề...');
+      
+      const response = await fetch(`${API_BASE}/api/scrape/both`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          urlAndroid: androidUrl.value,
+          urlIos: iosUrl.value,
+          dateFrom: dateFrom.value,
+          dateTo: dateTo.value,
+        }),
+      });
 
-      try {
-        const response = await fetch(`${API_BASE}/api/scrape/android`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url: androidUrl.value,
-            dateFrom: dateFrom.value,
-            dateTo: dateTo.value,
-          }),
-        });
+      const data = await response.json();
+      showProgress('Hoàn tất tổng hợp!', 100);
+      await new Promise(r => setTimeout(r, 400));
+      hideProgress();
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          results.push({ platform: 'android', error: data.error });
-        } else {
-          results.push({ platform: 'android', ...data });
-        }
-      } catch (err) {
-        results.push({ platform: 'android', error: err.message });
+      if (!response.ok) {
+        showToast(data.error || 'Lỗi khi cào tổng hợp dữ liệu', 'error');
+      } else {
+        activeResults.summary = { platform: 'summary', ...data.summary, fileName: data.fileName, filePath: data.filePath, base64: data.base64 };
+        activeResults.android = { platform: 'android', ...data.android };
+        activeResults.ios = { platform: 'ios', ...data.ios };
+        displayResults('both');
       }
-    }
+    } else if (platform === 'android') {
+      showProgress('Đang lấy đánh giá từ Google Play...', 50, 'Quá trình này có thể mất ít phút');
+      const response = await fetch(`${API_BASE}/api/scrape/android`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: androidUrl.value,
+          dateFrom: dateFrom.value,
+          dateTo: dateTo.value,
+        }),
+      });
+      const data = await response.json();
+      hideProgress();
 
-    if (platform === 'ios' || platform === 'both') {
-      showProgress('Đang lấy đánh giá từ App Store...', 70, 'Quá trình này có thể mất 1-2 phút');
-
-      try {
-        const response = await fetch(`${API_BASE}/api/scrape/ios`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url: iosUrl.value,
-            dateFrom: dateFrom.value,
-            dateTo: dateTo.value,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          results.push({ platform: 'ios', error: data.error });
-        } else {
-          results.push({ platform: 'ios', ...data });
+      if (!response.ok) {
+        activeResults.android = { platform: 'android', error: data.error };
+      } else {
+        activeResults.android = { platform: 'android', ...data };
+        if (data.summaryTopics) {
+          activeResults.summary = {
+            platform: 'summary',
+            totalCombined: data.totalReviews,
+            avgCombined: data.avgRating,
+            topics: data.summaryTopics,
+            fileName: 'tong_hop_rating_comment.xlsx'
+          };
         }
-      } catch (err) {
-        results.push({ platform: 'ios', error: err.message });
       }
-    }
+      displayResults('android');
+    } else if (platform === 'ios') {
+      showProgress('Đang lấy đánh giá từ App Store...', 50, 'Quá trình này có thể mất ít phút');
+      const response = await fetch(`${API_BASE}/api/scrape/ios`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: iosUrl.value,
+          dateFrom: dateFrom.value,
+          dateTo: dateTo.value,
+        }),
+      });
+      const data = await response.json();
+      hideProgress();
 
-    showProgress('Hoàn tất!', 100);
-    await new Promise(r => setTimeout(r, 500));
+      if (!response.ok) {
+        activeResults.ios = { platform: 'ios', error: data.error };
+      } else {
+        activeResults.ios = { platform: 'ios', ...data };
+        if (data.summaryTopics) {
+          activeResults.summary = {
+            platform: 'summary',
+            totalCombined: data.totalReviews,
+            avgCombined: data.avgRating,
+            topics: data.summaryTopics,
+            fileName: 'tong_hop_rating_comment.xlsx'
+          };
+        }
+      }
+      displayResults('ios');
+    }
+  } catch (err) {
     hideProgress();
-
-    // Show results
-    displayResults(results);
-
-    // Auto-download files for successful results
-    const successResults = results.filter(r => !r.error && (r.base64 || r.filePath));
-    if (successResults.length > 0) {
-      showToast(`Đang tự động tải ${successResults.length} file...`, 'success');
-      for (let i = 0; i < successResults.length; i++) {
-        // Stagger downloads to avoid browser blocking
-        await new Promise(r => setTimeout(r, i * 500));
-        downloadFile(successResults[i].filePath, successResults[i].base64, successResults[i].fileName);
-      }
-    }
+    showToast(`Lỗi: ${err.message}`, 'error');
   } finally {
     setButtonsDisabled(false);
   }
 }
 
-let activeResults = {};
-
-function displayResults(results) {
-  resultsGrid.innerHTML = '';
+function displayResults(requestPlatform) {
   resultsSection.style.display = 'block';
-  activeResults = {};
 
-  results.forEach(result => {
-    const card = document.createElement('div');
-    activeResults[result.platform] = result;
+  // Summary Tab
+  if (activeResults.summary) {
+    summaryTabCount.textContent = activeResults.summary.topics ? activeResults.summary.topics.length : 0;
+    summaryResultsWrapper.innerHTML = renderSummaryTabPanel(activeResults.summary);
+  } else if (!summaryResultsWrapper.children.length) {
+    summaryResultsWrapper.innerHTML = `<div class="empty-tab">Chưa có dữ liệu tổng hợp. Bấm "Lấy cả hai" để xem báo cáo tổng hợp.</div>`;
+  }
+
+  // Android Tab
+  if (activeResults.android) {
+    androidTabCount.textContent = activeResults.android.error ? 'Lỗi' : (activeResults.android.totalReviews || 0);
+    androidResultsWrapper.innerHTML = renderTabPanel(activeResults.android);
+  } else if (!androidResultsWrapper.children.length) {
+    androidResultsWrapper.innerHTML = `<div class="empty-tab">Chưa có dữ liệu cho Android. Hãy chọn "Lấy đánh giá Google Play".</div>`;
+  }
+
+  // iOS Tab
+  if (activeResults.ios) {
+    iosTabCount.textContent = activeResults.ios.error ? 'Lỗi' : (activeResults.ios.totalReviews || 0);
+    iosResultsWrapper.innerHTML = renderTabPanel(activeResults.ios);
+  } else if (!iosResultsWrapper.children.length) {
+    iosResultsWrapper.innerHTML = `<div class="empty-tab">Chưa có dữ liệu cho iOS. Hãy chọn "Lấy đánh giá App Store".</div>`;
+  }
+
+  // Switch to requested tab
+  if (requestPlatform === 'both' || requestPlatform === 'summary') {
+    switchTab('summary');
+  } else if (requestPlatform === 'ios') {
+    switchTab('ios');
+  } else {
+    switchTab('android');
+  }
+
+  resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+let sortState = {
+  android: { column: 'date', dir: 'desc' },
+  ios: { column: 'date', dir: 'desc' }
+};
+
+function handleSort(platform, col) {
+  if (col !== 'rating' && col !== 'date') return;
+  if (!sortState[platform]) {
+    sortState[platform] = { column: 'date', dir: 'desc' };
+  }
+  const current = sortState[platform];
+  if (current.column === col) {
+    current.dir = current.dir === 'desc' ? 'asc' : 'desc';
+  } else {
+    current.column = col;
+    current.dir = 'desc';
+  }
+
+  if (activeResults[platform]) {
+    const wrapper = platform === 'android' ? androidResultsWrapper : iosResultsWrapper;
+    wrapper.innerHTML = renderTabPanel(activeResults[platform]);
+  }
+}
+
+function getSortHeaderHtml(platform, col, title, widthStyle = '') {
+  const current = sortState[platform] || { column: 'date', dir: 'desc' };
+  const isActive = current.column === col;
+  const icon = isActive ? (current.dir === 'desc' ? '⬇️' : '⬆️') : '↕️';
+  const activeClass = isActive ? 'active-sort' : '';
+  
+  return `<th class="sortable-th ${activeClass}" style="${widthStyle}" onclick="handleSort('${platform}', '${col}')" title="Click để sắp xếp theo ${title}">
+    ${title}<span class="sort-icon">${icon}</span>
+  </th>`;
+}
+
+function renderTabPanel(result) {
+  if (result.error) {
+    return `
+      <div class="result-card error">
+        <p class="result-error">❌ ${escapeHtml(result.error)}</p>
+      </div>
+    `;
+  }
+
+  const isAndroid = result.platform === 'android';
+  const state = sortState[result.platform] || { column: 'date', dir: 'desc' };
+  const mult = state.dir === 'desc' ? -1 : 1;
+
+  const rawReviews = result.reviews || [];
+  const reviews = rawReviews.slice().sort((a, b) => {
+    if (state.column === 'rating') {
+      return ((a.rating || 0) - (b.rating || 0)) * mult;
+    }
+    if (state.column === 'date') {
+      const dA = a.date ? new Date(a.date).getTime() : 0;
+      const dB = b.date ? new Date(b.date).getTime() : 0;
+      return (dA - dB) * mult;
+    }
+    return 0;
+  });
+
+  const total = result.totalReviews || reviews.length;
+  const avg = result.avgRating !== undefined ? result.avgRating : (total > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / total).toFixed(2) : '0.0');
+  const ratingCounts = result.ratingCounts || { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+
+  const getPercent = (count) => total > 0 ? Math.round((count / total) * 100) : 0;
+  const previewReviews = reviews.slice(0, 100);
+
+  let tableHeader = isAndroid ? `
+    <tr>
+      <th style="width: 50px;">STT</th>
+      <th style="width: 140px;">Người dùng</th>
+      ${getSortHeaderHtml('android', 'rating', 'Số sao', 'width: 100px;')}
+      <th>Bình luận</th>
+      ${getSortHeaderHtml('android', 'date', 'Ngày', 'width: 110px;')}
+      <th style="width: 70px;">Thích</th>
+      <th style="width: 200px;">Phản hồi từ NPT</th>
+    </tr>
+  ` : `
+    <tr>
+      <th style="width: 50px;">STT</th>
+      <th style="width: 140px;">Người dùng</th>
+      ${getSortHeaderHtml('ios', 'rating', 'Số sao', 'width: 100px;')}
+      <th style="width: 150px;">Tiêu đề</th>
+      <th>Bình luận</th>
+      ${getSortHeaderHtml('ios', 'date', 'Ngày', 'width: 110px;')}
+      <th style="width: 90px;">Phiên bản</th>
+    </tr>
+  `;
+
+  let tableRows = previewReviews.map((r, idx) => {
+    const starClass = r.rating >= 4 ? 'star-high' : r.rating >= 3 ? 'star-med' : 'star-low';
+    const starsHtml = `<span class="rating-badge ${starClass}">⭐ ${r.rating}</span>`;
     
-    if (result.error) {
-      card.className = `result-card error`;
-      card.innerHTML = `
-        <div class="result-header">
-          <span class="result-store">
-            ${result.platform === 'android' ? '🤖' : '🍎'} 
-            ${result.platform === 'android' ? 'Google Play' : 'App Store'}
-          </span>
-        </div>
-        <p class="result-error">❌ ${result.error}</p>
+    if (isAndroid) {
+      return `
+        <tr>
+          <td class="text-center">${idx + 1}</td>
+          <td class="font-medium">${escapeHtml(r.userName || 'Ẩn danh')}</td>
+          <td class="text-center">${starsHtml}</td>
+          <td class="comment-cell">${escapeHtml(r.comment || '')}</td>
+          <td class="text-center text-muted">${r.date || ''}</td>
+          <td class="text-center">${r.thumbsUp || 0}</td>
+          <td class="reply-cell">${escapeHtml(r.replyText || '')}</td>
+        </tr>
       `;
     } else {
-      card.className = `result-card ${result.platform}`;
-      card.innerHTML = `
-        <div class="result-header">
-          <span class="result-store">
-            ${result.platform === 'android' ? '🤖' : '🍎'} 
-            ${result.platform === 'android' ? 'Google Play' : 'App Store'}
-          </span>
+      return `
+        <tr>
+          <td class="text-center">${idx + 1}</td>
+          <td class="font-medium">${escapeHtml(r.userName || 'Ẩn danh')}</td>
+          <td class="text-center">${starsHtml}</td>
+          <td class="title-cell">${escapeHtml(r.title || '')}</td>
+          <td class="comment-cell">${escapeHtml(r.comment || '')}</td>
+          <td class="text-center text-muted">${r.date || ''}</td>
+          <td class="text-center text-muted">${escapeHtml(r.version || '')}</td>
+        </tr>
+      `;
+    }
+  }).join('');
+
+  return `
+    <div class="tab-panel-inner">
+      <!-- Download Bar -->
+      <div class="download-bar ${result.platform}">
+        <div class="download-info">
+          <div class="file-icon">📊</div>
+          <div>
+            <div class="file-name">${result.fileName}</div>
+            <div class="file-sub">Đã tạo file sẵn sàng - Tổng cộng ${total.toLocaleString()} đánh giá</div>
+          </div>
         </div>
-        <div class="result-count">${result.totalReviews.toLocaleString()}</div>
-        <div class="result-label">đánh giá được tìm thấy</div>
-        <button class="btn-download" onclick="triggerDownload('${result.platform}')">
+        <button class="btn btn-download-primary" onclick="triggerDownload('${result.platform}')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
-          Tải file ${result.platform === 'android' ? 'android_rating_comment.xlsx' : 'ios_rating_comment.xlsx'}
+          Tải xuống File Excel (.xlsx)
         </button>
-      `;
-    }
+      </div>
 
-    resultsGrid.appendChild(card);
-  });
+      <!-- Stats Grid -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-title">Tổng số đánh giá</span>
+          <div class="stat-value">${total.toLocaleString()}</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-title">Rating trung bình</span>
+          <div class="stat-value rating-val">⭐ ${avg}</div>
+        </div>
+        <div class="stat-card distribution-card">
+          <span class="stat-title">Phân bố số sao</span>
+          <div class="stars-bars">
+            ${[5, 4, 3, 2, 1].map(star => {
+              const cnt = ratingCounts[star] || 0;
+              const pct = getPercent(cnt);
+              return `
+                <div class="star-row">
+                  <span class="star-label">${star} ★</span>
+                  <div class="bar-bg">
+                    <div class="bar-fill star-${star}" style="width: ${pct}%"></div>
+                  </div>
+                  <span class="star-count">${cnt} (${pct}%)</span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
 
-  // Scroll to results
-  resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      <!-- Data Preview Table -->
+      <div class="preview-section">
+        <div class="preview-header">
+          <h3>Xem trước danh sách ${reviews.length > 100 ? `(100 / ${total} dòng)` : `(${total} dòng)`}</h3>
+        </div>
+        <div class="table-container">
+          <table class="preview-table">
+            <thead>${tableHeader}</thead>
+            <tbody>${tableRows || '<tr><td colspan="7" class="text-center">Không có dữ liệu</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function renderSummaryTabPanel(summaryData) {
+  if (!summaryData || !summaryData.topics || summaryData.topics.length === 0) {
+    return `
+      <div class="empty-tab">
+        <p>Chưa có dữ liệu tổng hợp. Vui lòng cào dữ liệu từ Android / iOS hoặc bấm <strong>"Lấy cả hai"</strong>.</p>
+      </div>
+    `;
+  }
+
+  const topics = summaryData.topics || [];
+  const totalCombined = summaryData.totalCombined || topics.reduce((s, t) => s + t.count, 0);
+  const avgCombined = summaryData.avgCombined || '0.00';
+
+  const rowsHtml = topics.map(t => {
+    const isGood = t.sentiment.includes('Tốt') && !t.sentiment.includes('Chưa');
+    const badgeClass = isGood ? 'sentiment-badge-good' : 'sentiment-badge-warning';
+    
+    return `
+      <tr>
+        <td class="text-center font-bold" style="font-weight: 700;">${t.rank}</td>
+        <td class="topic-title-cell">${escapeHtml(t.topic)}</td>
+        <td class="text-center count-cell">${t.count}</td>
+        <td class="text-center">
+          <span class="sentiment-badge ${badgeClass}">${escapeHtml(t.sentiment)}</span>
+        </td>
+        <td class="detail-cell">${escapeHtml(t.details)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <div class="tab-panel-inner">
+      <!-- Download Bar Summary -->
+      <div class="download-bar summary">
+        <div class="download-info">
+          <div class="file-icon">📊</div>
+          <div>
+            <div class="file-name">${summaryData.fileName || 'tong_hop_rating_comment.xlsx'}</div>
+            <div class="file-sub">File Báo cáo tổng hợp (gồm 3 Sheet: Tổng hợp, Google Play, App Store)</div>
+          </div>
+        </div>
+        <button class="btn btn-download-primary" onclick="triggerDownload('summary')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Tải xuống Báo cáo tổng hợp (.xlsx)
+        </button>
+      </div>
+
+      <!-- Stats Grid Summary -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-title">Tổng số ý kiến / đánh giá</span>
+          <div class="stat-value">${totalCombined.toLocaleString()}</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-title">Rating trung bình tổng hợp</span>
+          <div class="stat-value rating-val">⭐ ${avgCombined}</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-title">Số nhóm chủ đề phân tích</span>
+          <div class="stat-value">${topics.length} nhóm</div>
+        </div>
+      </div>
+
+      <!-- Data Preview Table Summary -->
+      <div class="preview-section">
+        <div class="preview-header">
+          <h3>📋 Báo cáo tổng hợp nhóm ý kiến & phản hồi khách hàng (${topics.length} nhóm chủ đề)</h3>
+        </div>
+        <div class="table-container">
+          <table class="preview-table summary-table">
+            <thead>
+              <tr>
+                <th style="width: 90px;" class="text-center">Xếp hạng</th>
+                <th style="width: 250px;">Chủ đề</th>
+                <th style="width: 110px;" class="text-center">Số ý kiến</th>
+                <th style="width: 130px;" class="text-center">Đánh giá</th>
+                <th>Chi tiết</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function triggerDownload(platform) {
   const result = activeResults[platform];
-  if (result) {
-    downloadFile(result.filePath, result.base64, result.fileName);
-  }
+  if (!result) return;
+
+  const path = result.filePath;
+  const base64 = result.base64;
+  const fileName = result.fileName;
+  downloadFile(path, base64, fileName);
 }
 
 function downloadFile(path, base64, fileName) {

@@ -143,13 +143,6 @@
             </svg>
             Khoảng thời gian
           </h2>
-          <div class="quick-dates">
-            <button class="btn-chip" data-days="7">7 ngày</button>
-            <button class="btn-chip" data-days="30">30 ngày</button>
-            <button class="btn-chip" data-days="90">3 tháng</button>
-            <button class="btn-chip active" data-days="180">6 tháng</button>
-            <button class="btn-chip" data-days="365">1 năm</button>
-          </div>
         </div>
 
         <div class="date-inputs">
@@ -221,11 +214,53 @@
               <line x1="16" y1="17" x2="8" y2="17"/>
               <polyline points="10 9 9 9 8 9"/>
             </svg>
-            Kết quả
+            Xem trước kết quả dữ liệu
           </h2>
         </div>
 
-        <div class="results-grid" id="resultsGrid"></div>
+        <!-- Tabs Container -->
+        <div class="tabs-container">
+          <div class="tabs-header" role="tablist">
+            <button class="tab-btn active" id="tabBtnSummary" data-tab="summary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6" y1="20" x2="6" y2="14"/>
+              </svg>
+              <span>📊 Tổng hợp</span>
+              <span class="tab-badge" id="summaryTabCount">0</span>
+            </button>
+            <button class="tab-btn" id="tabBtnAndroid" data-tab="android">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                <path d="M17.523 2.237a.4.4 0 0 0-.7.0l-2.2 3.9-2.2-3.9a.4.4 0 0 0-.7 0L3.4 15.8a.4.4 0 0 0 .35.6h16.5a.4.4 0 0 0 .35-.6L17.523 2.237zM9.5 13a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm5 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+              </svg>
+              <span>Google Play (Android)</span>
+              <span class="tab-badge" id="androidTabCount">0</span>
+            </button>
+            <button class="tab-btn" id="tabBtnIos" data-tab="ios">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+              </svg>
+              <span>App Store (iOS)</span>
+              <span class="tab-badge" id="iosTabCount">0</span>
+            </button>
+          </div>
+
+          <!-- Tab Content Summary -->
+          <div class="tab-content active" id="tabContentSummary">
+            <div id="summaryResultsWrapper"></div>
+          </div>
+
+          <!-- Tab Content Android -->
+          <div class="tab-content" id="tabContentAndroid">
+            <div id="androidResultsWrapper"></div>
+          </div>
+
+          <!-- Tab Content iOS -->
+          <div class="tab-content" id="tabContentIos">
+            <div id="iosResultsWrapper"></div>
+          </div>
+        </div>
       </section>
     </main>
 

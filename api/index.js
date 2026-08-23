@@ -637,6 +637,9 @@ app.post(['/api/scrape/both', '/scrape/both'], async (req, res) => {
     const fileName = 'tong_hop_rating_comment.xlsx';
     const { filePath, base64 } = await generateCombinedExcel(androidReviews, iosReviews, summaryTopics, fileName);
 
+    const androidExcel = await generateExcel(androidReviews, 'android_rating_comment.xlsx', appIdAndroid || 'android', 'Google Play');
+    const iosExcel = await generateExcel(iosReviews, 'ios_rating_comment.xlsx', appIdIos || 'ios', 'App Store');
+
     const totalCombined = combinedReviews.length;
     const avgCombined = totalCombined > 0 ? (combinedReviews.reduce((s, r) => s + r.rating, 0) / totalCombined) : 0;
 
@@ -654,21 +657,28 @@ app.post(['/api/scrape/both', '/scrape/both'], async (req, res) => {
       summary: {
         totalCombined,
         avgCombined: parseFloat(avgCombined.toFixed(2)),
-        topics: summaryTopics
+        topics: summaryTopics,
+        fileName,
+        filePath,
+        base64
       },
       android: {
         totalReviews: androidReviews.length,
         avgRating: parseFloat(androidAvg.toFixed(2)),
         ratingCounts: androidRatingCounts,
         reviews: androidReviews,
-        fileName: 'android_rating_comment.xlsx'
+        fileName: 'android_rating_comment.xlsx',
+        filePath: androidExcel.filePath,
+        base64: androidExcel.base64
       },
       ios: {
         totalReviews: iosReviews.length,
         avgRating: parseFloat(iosAvg.toFixed(2)),
         ratingCounts: iosRatingCounts,
         reviews: iosReviews,
-        fileName: 'ios_rating_comment.xlsx'
+        fileName: 'ios_rating_comment.xlsx',
+        filePath: iosExcel.filePath,
+        base64: iosExcel.base64
       },
       fileName,
       filePath: `/api/download/${fileName}`,

@@ -664,11 +664,14 @@ function renderSummaryTabPanel(summaryData) {
 
 function triggerDownload(platform) {
   const result = activeResults[platform];
-  if (!result) return;
+  if (!result) {
+    showToast('Chưa có dữ liệu để tải file!', 'error');
+    return;
+  }
 
   const path = result.filePath;
   const base64 = result.base64;
-  const fileName = result.fileName;
+  const fileName = result.fileName || `${platform}_rating_comment.xlsx`;
   downloadFile(path, base64, fileName);
 }
 
@@ -697,13 +700,18 @@ function downloadFile(path, base64, fileName) {
     }
   }
 
-  const a = document.createElement('a');
-  a.href = `${API_BASE}${path}`;
-  a.download = '';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  showToast('Đang tải file...', 'success');
+  if (path && path !== 'undefined' && !path.includes('undefined')) {
+    const a = document.createElement('a');
+    a.href = `${API_BASE}${path}`;
+    a.download = fileName || '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast('Đang tải file...', 'success');
+    return;
+  }
+
+  showToast('Không tìm thấy dữ liệu file Excel. Vui lòng bấm cào lại!', 'error');
 }
 
 // Header Mode Navigation

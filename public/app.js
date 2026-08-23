@@ -884,29 +884,76 @@ if (btnAnalyzeAI) {
   });
 }
 
+let currentAITabFilter = 'negative';
+
+function getJourneyBadgeClass(journey) {
+  const j = (journey || '').toLowerCase();
+  if (j.includes('daily')) return 'journey-daily';
+  if (j.includes('lending') || j.includes('vay') || j.includes('giải ngân')) return 'journey-lending';
+  if (j.includes('rm') || j.includes('cán bộ') || j.includes('nhân viên')) return 'journey-rm';
+  if (j.includes('247') || j.includes('tổng đài') || j.includes('hotline') || j.includes('khiếu nại')) return 'journey-247';
+  return 'journey-default';
+}
+
+function switchAITableTab(filterType) {
+  currentAITabFilter = filterType;
+  const data = activeResults.ai;
+  if (!data) return;
+
+  const tabNeg = document.getElementById('aiTabNeg');
+  const tabPos = document.getElementById('aiTabPos');
+  const tabAll = document.getElementById('aiTabAll');
+
+  if (tabNeg) tabNeg.classList.toggle('active', filterType === 'negative');
+  if (tabPos) tabPos.classList.toggle('active', filterType === 'positive');
+  if (tabAll) tabAll.classList.toggle('active', filterType === 'all');
+
+  let filtered = data.results || [];
+  if (filterType === 'negative') {
+    filtered = filtered.filter(r => r.sentiment === 'Tiêu cực');
+  } else if (filterType === 'positive') {
+    filtered = filtered.filter(r => r.sentiment === 'Tích cực');
+  }
+
+  const tbody = document.getElementById('aiTableBody');
+  const title = document.getElementById('aiTableTitle');
+
+  if (title) {
+    if (filterType === 'negative') title.textContent = `📋 Bảng danh sách đánh giá Tiêu cực (${filtered.length} dòng)`;
+    else if (filterType === 'positive') title.textContent = `📋 Bảng danh sách đánh giá Tích cực (${filtered.length} dòng)`;
+    else title.textContent = `📋 Bảng phân loại cảm xúc chi tiết theo từ điển (${filtered.length} dòng)`;
+  }
+
+  if (tbody) {
+    if (!filtered.length) {
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted" style="padding: 28px;">Không có dữ liệu trong mục này</td></tr>`;
+    } else {
+      tbody.innerHTML = filtered.map((r, idx) => `
+        <tr>
+          <td class="text-center font-bold" style="font-weight: 700;">${idx + 1}</td>
+          <td class="font-medium text-muted">${escapeHtml(r.sourceFile || '')}</td>
+          <td class="font-medium">${escapeHtml(r.userName || 'Ẩn danh')}</td>
+          <td class="text-center">
+            <span class="rating-badge ${r.rating >= 4 ? 'star-high' : r.rating >= 3 ? 'star-med' : 'star-low'}">⭐ ${r.rating}</span>
+          </td>
+          <td class="comment-cell">${escapeHtml(r.comment || '')}</td>
+          <td class="text-center text-muted">${r.date || ''}</td>
+          <td class="text-center">
+            <span class="${r.badgeClass}">${escapeHtml(r.sentiment)}</span>
+          </td>
+          <td class="journey-cell">
+            <span class="badge-journey ${getJourneyBadgeClass(r.journey)}">${escapeHtml(r.journey || 'Daily')}</span>
+          </td>
+          <td class="detail-cell" style="color: var(--accent); font-weight: 600;">${escapeHtml(r.matchedKeywords || '')}</td>
+        </tr>
+      `).join('');
+    }
+  }
+}
+
 function renderAIResults(data) {
   if (!aiResultsSection || !aiResultsWrapper) return;
   aiResultsSection.style.display = 'block';
-
-  const rows = (data.results || []).map((r, idx) => `
-    <tr>
-      <td class="text-center font-bold" style="font-weight: 700;">${idx + 1}</td>
-      <td class="font-medium text-muted">${escapeHtml(r.sourceFile || '')}</td>
-      <td class="font-medium">${escapeHtml(r.userName || 'Ẩn danh')}</td>
-      <td class="text-center">
-        <span class="rating-badge ${r.rating >= 4 ? 'star-high' : r.rating >= 3 ? 'star-med' : 'star-low'}">⭐ ${r.rating}</span>
-      </td>
-      <td class="comment-cell">${escapeHtml(r.comment || '')}</td>
-      <td class="text-center text-muted">${r.date || ''}</td>
-      <td class="text-center">
-        <span class="${r.badgeClass}">${escapeHtml(r.sentiment)}</span>
-      </td>
-      <td class="journey-cell">
-        <span class="badge-journey">${escapeHtml(r.journey || 'Đánh giá chung')}</span>
-      </td>
-      <td class="detail-cell" style="color: var(--accent); font-weight: 600;">${escapeHtml(r.matchedKeywords || '')}</td>
-    </tr>
-  `).join('');
 
   aiResultsWrapper.innerHTML = `
     <div class="tab-panel-inner">
@@ -951,8 +998,19 @@ function renderAIResults(data) {
 
       <!-- Data Preview Table AI -->
       <div class="preview-section">
-        <div class="preview-header">
-          <h3>📋 Bảng phân loại cảm xúc chi tiết theo từ điển (${(data.results || []).length} dòng)</h3>
+        <div class="preview-header-tabs">
+          <div class="ai-table-tabs">
+            <button class="ai-table-tab-btn active" id="aiTabNeg" onclick="switchAITableTab('negative')">
+              ⚠️ Đánh giá Tiêu cực <span class="tab-count count-neg">${data.countNeg || 0}</span>
+            </button>
+            <button class="ai-table-tab-btn" id="aiTabPos" onclick="switchAITableTab('positive')">
+              ✅ Đánh giá Tích cực <span class="tab-count count-pos">${data.countPos || 0}</span>
+            </button>
+            <button class="ai-table-tab-btn" id="aiTabAll" onclick="switchAITableTab('all')">
+              📋 Tất cả đánh giá <span class="tab-count count-all">${data.totalReviews || 0}</span>
+            </button>
+          </div>
+          <h3 id="aiTableTitle" style="font-size: 0.88rem; margin-top: 12px; color: var(--text-secondary); font-weight: 500;">📋 Bảng danh sách đánh giá Tiêu cực (${data.countNeg || 0} dòng)</h3>
         </div>
         <div class="table-container">
           <table class="preview-table summary-table">
@@ -965,18 +1023,20 @@ function renderAIResults(data) {
                 <th>Bình luận</th>
                 <th style="width: 100px;" class="text-center">Ngày</th>
                 <th style="width: 120px;" class="text-center">Phân loại AI</th>
-                <th style="width: 170px;">Hành trình</th>
+                <th style="width: 140px;">Hành trình</th>
                 <th style="width: 180px;">Từ khóa trùng khớp</th>
               </tr>
             </thead>
-            <tbody>
-              ${rows || '<tr><td colspan="9" class="text-center">Không có dữ liệu</td></tr>'}
+            <tbody id="aiTableBody">
             </tbody>
           </table>
         </div>
       </div>
     </div>
   `;
+
+  switchAITableTab('negative');
+}
 
   aiResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

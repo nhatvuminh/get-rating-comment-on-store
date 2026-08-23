@@ -1338,66 +1338,69 @@ async function parseDictionaryFile(buffer, fileName) {
         if (!trimmed) return;
         const parts = trimmed.split(/[,;\t]/);
         const kw = parts[0] ? parts[0].trim().toLowerCase() : '';
-        const tag = parts[1] ? parts[1].trim() : '';
-        const journey = parts[2] ? parts[2].trim() : '';
+        const col2 = parts[1] ? parts[1].trim() : '';
 
-        if (!kw || (idx === 0 && (kw.includes('từ khóa') || kw.includes('keyword')))) return;
+        if (!kw || (idx === 0 && (kw.includes('từ khóa') || kw.includes('nội dung')))) return;
 
-        const isNeg = tag.toLowerCase().includes('tiêu cực') || tag.toLowerCase().includes('negative') || kw.includes('lỗi') || kw.includes('lag') || kw.includes('tệ') || kw.includes('chậm');
-        if (isNeg) {
-          negativeKeywords.add(kw);
-        } else {
-          positiveKeywords.add(kw);
+        let journey = 'Daily';
+        let sentiment = 'Tiêu cực';
+
+        if (col2.includes('tiêu cực') || col2.includes('negative')) {
+          sentiment = 'Tiêu cực';
+        } else if (col2.includes('tích cực') || col2.includes('positive')) {
+          sentiment = 'Tích cực';
+        } else if (col2) {
+          journey = col2;
+          sentiment = (kw.includes('nhiệt tình') || kw.includes('tốt') || kw.includes('hài lòng')) ? 'Tích cực' : 'Tiêu cực';
         }
 
-        dictItems.push({
-          keyword: kw,
-          sentiment: isNeg ? 'Tiêu cực' : 'Tích cực',
-          journey: journey || 'Đánh giá chung'
-        });
+        if (sentiment === 'Tiêu cực') negativeKeywords.add(kw);
+        else positiveKeywords.add(kw);
+
+        dictItems.push({ keyword: kw, sentiment, journey: journey || 'Daily' });
       });
     } else {
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(buffer);
       workbook.worksheets.forEach(sheet => {
-        let colMap = { keyword: 1, sentiment: 2, journey: 3 };
-        let headerFound = false;
+        let colMap = { keyword: 1, col2: 2, col3: 3 };
 
         sheet.eachRow((row, rowNumber) => {
-          if (rowNumber <= 3 && !headerFound) {
+          if (rowNumber <= 3) {
             row.eachCell((cell, colNum) => {
               const text = extractCellText(cell).toLowerCase();
-              if (text.includes('từ khóa') || text.includes('keyword') || text.includes('từ')) colMap.keyword = colNum;
-              if (text.includes('cảm xúc') || text.includes('phân loại') || text.includes('loại') || text.includes('sentiment')) colMap.sentiment = colNum;
-              if (text.includes('hành trình') || text.includes('giai đoạn') || text.includes('chủ đề') || text.includes('journey') || text.includes('luồng') || text.includes('bước')) {
-                colMap.journey = colNum;
-                headerFound = true;
-              }
+              if (text.includes('từ') || text.includes('nội dung') || text.includes('keyword')) colMap.keyword = colNum;
+              if (text.includes('hành trình') || text.includes('journey') || text.includes('chủ đề') || text.includes('giai đoạn') || text.includes('phân loại')) colMap.col2 = colNum;
             });
           }
 
-          const cellKwText = extractCellText(row.getCell(colMap.keyword)).trim();
-          if (rowNumber <= 3 && (cellKwText.toLowerCase().includes('từ khóa') || cellKwText.toLowerCase().includes('keyword'))) return;
+          const kwText = extractCellText(row.getCell(colMap.keyword)).trim();
+          if (rowNumber <= 3 && (kwText.toLowerCase().includes('nội dung') || kwText.toLowerCase().includes('từ khóa') || kwText.toLowerCase().includes('keyword'))) return;
 
-          const kw = cellKwText.toLowerCase();
-          const tag = extractCellText(row.getCell(colMap.sentiment)).trim();
-          const journey = extractCellText(row.getCell(colMap.journey)).trim();
+          const kw = kwText.toLowerCase();
+          const val2 = extractCellText(row.getCell(colMap.col2)).trim();
+          const val3 = extractCellText(row.getCell(colMap.col3)).trim();
 
           if (!kw) return;
 
-          const isNeg = tag.toLowerCase().includes('tiêu cực') || tag.toLowerCase().includes('negative') || tag.toLowerCase().includes('chưa tốt') || kw.includes('lỗi') || kw.includes('lag') || kw.includes('tệ') || kw.includes('chậm');
+          let journey = 'Daily';
+          let sentiment = 'Tiêu cực';
 
-          if (isNeg) {
-            negativeKeywords.add(kw);
-          } else {
-            positiveKeywords.add(kw);
+          if (val2.includes('tiêu cực') || val3.includes('tiêu cực')) {
+            sentiment = 'Tiêu cực';
+            if (val2 && !val2.includes('tiêu cực')) journey = val2;
+          } else if (val2.includes('tích cực') || val3.includes('tích cực')) {
+            sentiment = 'Tích cực';
+            if (val2 && !val2.includes('tích cực')) journey = val2;
+          } else if (val2) {
+            journey = val2;
+            sentiment = (kw.includes('nhiệt tình') || kw.includes('tốt') || kw.includes('chu đáo') || kw.includes('hài lòng')) ? 'Tích cực' : 'Tiêu cực';
           }
 
-          dictItems.push({
-            keyword: kw,
-            sentiment: isNeg ? 'Tiêu cực' : 'Tích cực',
-            journey: journey || 'Đánh giá chung'
-          });
+          if (sentiment === 'Tiêu cực') negativeKeywords.add(kw);
+          else positiveKeywords.add(kw);
+
+          dictItems.push({ keyword: kw, sentiment, journey: journey || 'Daily' });
         });
       });
     }

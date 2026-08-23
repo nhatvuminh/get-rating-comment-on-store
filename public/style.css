@@ -1175,16 +1175,105 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   background: var(--bg-card-hover);
 }
 
+.preview-header-tabs {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.ai-table-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ai-table-tab-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.ai-table-tab-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.ai-table-tab-btn.active {
+  background: var(--bg-card);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.ai-table-tab-btn.active#aiTabNeg {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+}
+
+.ai-table-tab-btn.active#aiTabPos {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  color: #6ee7b7;
+}
+
+.tab-count {
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.count-neg { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+.count-pos { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+.count-all { background: rgba(156, 163, 175, 0.2); color: #9ca3af; }
+
 .badge-journey {
   display: inline-block;
   padding: 3px 10px;
   border-radius: 12px;
   font-size: 0.76rem;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-journey.journey-daily {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.badge-journey.journey-lending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-journey.journey-rm {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-journey.journey-247 {
+  background: rgba(236, 72, 153, 0.15);
+  color: #f472b6;
+  border: 1px solid rgba(236, 72, 153, 0.3);
+}
+
+.badge-journey.journey-default {
   background: rgba(99, 102, 241, 0.15);
   color: #a5b4fc;
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  white-space: nowrap;
+  border: 1px solid rgba(99, 102, 241, 0.3);
 }
 
 .text-center { text-align: center; }

@@ -513,6 +513,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--text-primary);
   padding: 10px 22px;
   font-size: 0.85rem;
+  margin-top: 16px;
 }
 
 .btn-save:hover:not(:disabled) {
@@ -1335,7 +1336,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .mode-view.active {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 /* File Dropzone & Chips Styles */

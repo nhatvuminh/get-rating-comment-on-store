@@ -297,8 +297,8 @@ function fetchJsonWithRetry(url, headers, maxRetries = 3) {
   });
 }
 
-// Helper: Fetch paginated App Store reviews from Apple Storefront API with deduplication & retry
-async function fetchAppStoreReviewsFromAPI(country, appId, startDate, endDate, maxPages = 60) {
+// Helper: Fetch paginated App Store reviews from Apple Storefront API with fast parallel batching
+async function fetchAppStoreReviewsFromAPI(country, appId, startDate, endDate, maxPages = 30) {
   const headers = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Referer': 'https://apps.apple.com/',
@@ -309,43 +309,65 @@ async function fetchAppStoreReviewsFromAPI(country, appId, startDate, endDate, m
   const targetCountry = country || 'vn';
   const seenIds = new Set();
   const reviews = [];
-  let offset = 0;
   const limit = 20;
 
-  for (let page = 0; page < maxPages; page++) {
-    const url = `https://apps.apple.com/api/apps/v1/catalog/${targetCountry}/apps/${appId}/reviews?platform=iphone&l=vi&limit=${limit}&offset=${offset}`;
-    
-    const data = await fetchJsonWithRetry(url, headers, 3);
-
-    if (!data || !data.data || !Array.isArray(data.data) || data.data.length === 0) break;
-
-    for (const item of data.data) {
-      if (!item.attributes) continue;
-      const reviewId = item.id || `${item.attributes.userName}_${item.attributes.date}`;
-      if (seenIds.has(reviewId)) continue;
-      seenIds.add(reviewId);
-
-      const rDate = new Date(item.attributes.date);
-      const isValidDate = !isNaN(rDate.getTime());
-
-      const matchStart = !startDate || isNaN(startDate.getTime()) || (isValidDate && rDate >= startDate);
-      const matchEnd = !endDate || isNaN(endDate.getTime()) || (isValidDate && rDate <= endDate);
-
-      if (matchStart && matchEnd) {
-        reviews.push({
-          userName: item.attributes.userName || 'Ẩn danh',
-          rating: Number(item.attributes.rating || 5),
-          title: item.attributes.title || '',
-          comment: item.attributes.review || '',
-          date: isValidDate ? rDate.toISOString().split('T')[0] : '',
-          version: item.attributes.version || ''
+  const fetchSinglePage = (offset) => {
+    return new Promise((resolve) => {
+      const url = `https://apps.apple.com/api/apps/v1/catalog/${targetCountry}/apps/${appId}/reviews?platform=iphone&l=vi&limit=${limit}&offset=${offset}`;
+      https.get(url, { headers }, (res) => {
+        if (res.statusCode !== 200) return resolve([]);
+        let d = '';
+        res.on('data', c => d += c);
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(d);
+            resolve(parsed.data || []);
+          } catch (e) { resolve([]); }
         });
+      }).on('error', () => resolve([]));
+    });
+  };
+
+  const BATCH_SIZE = 5;
+  for (let b = 0; b < maxPages; b += BATCH_SIZE) {
+    const promises = [];
+    for (let i = b; i < b + BATCH_SIZE && i < maxPages; i++) {
+      promises.push(fetchSinglePage(i * limit));
+    }
+
+    const batchResults = await Promise.all(promises);
+    let totalBatchItems = 0;
+
+    for (const items of batchResults) {
+      if (!Array.isArray(items)) continue;
+      totalBatchItems += items.length;
+
+      for (const item of items) {
+        if (!item || !item.attributes) continue;
+        const reviewId = item.id || `${item.attributes.userName}_${item.attributes.date}`;
+        if (seenIds.has(reviewId)) continue;
+        seenIds.add(reviewId);
+
+        const rDate = new Date(item.attributes.date);
+        const isValidDate = !isNaN(rDate.getTime());
+
+        const matchStart = !startDate || isNaN(startDate.getTime()) || (isValidDate && rDate >= startDate);
+        const matchEnd = !endDate || isNaN(endDate.getTime()) || (isValidDate && rDate <= endDate);
+
+        if (matchStart && matchEnd) {
+          reviews.push({
+            userName: item.attributes.userName || 'Ẩn danh',
+            rating: Number(item.attributes.rating || 5),
+            title: item.attributes.title || '',
+            comment: item.attributes.review || '',
+            date: isValidDate ? rDate.toISOString().split('T')[0] : '',
+            version: item.attributes.version || ''
+          });
+        }
       }
     }
 
-    if (data.data.length < limit) break;
-    offset += data.data.length;
-    await new Promise(r => setTimeout(r, 60));
+    if (totalBatchItems === 0) break;
   }
 
   return reviews;

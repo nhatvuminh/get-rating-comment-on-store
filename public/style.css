@@ -1253,6 +1253,88 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .count-pos { background: rgba(16, 185, 129, 0.2); color: #10b981; }
 .count-all { background: rgba(156, 163, 175, 0.2); color: #9ca3af; }
 
+/* Excel Filter Toolbar */
+.excel-filter-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.excel-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.excel-filter-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.excel-filter-input,
+.excel-filter-select {
+  padding: 6px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.excel-filter-input {
+  min-width: 220px;
+}
+
+.excel-filter-input:focus,
+.excel-filter-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.btn-excel-reset {
+  padding: 6px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: auto;
+  transition: all 0.2s ease;
+}
+
+.btn-excel-reset:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #ffffff;
+}
+
+.excel-header-btn {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.excel-header-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+}
+
 .badge-journey {
   display: inline-block;
   padding: 3px 10px;

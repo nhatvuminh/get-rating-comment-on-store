@@ -866,38 +866,81 @@ function getJourneyBadgeClass(journey) {
   return 'journey-default';
 }
 
-function switchAITableTab(filterType) {
-  currentAITabFilter = filterType;
+function getFileOptionsHtml(results) {
+  if (!Array.isArray(results)) return '';
+  const files = Array.from(new Set(results.map(r => r.sourceFile).filter(Boolean)));
+  return files.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
+}
+
+function resetAITableFilters() {
+  const kw = document.getElementById('aiFilterKeyword');
+  const rating = document.getElementById('aiFilterRating');
+  const journey = document.getElementById('aiFilterJourney');
+  const file = document.getElementById('aiFilterFile');
+
+  if (kw) kw.value = '';
+  if (rating) rating.value = 'all';
+  if (journey) journey.value = 'all';
+  if (file) file.value = 'all';
+
+  applyAITableFilters();
+}
+
+function applyAITableFilters() {
   const data = activeResults.ai;
   if (!data) return;
 
-  const tabNeg = document.getElementById('aiTabNeg');
-  const tabPos = document.getElementById('aiTabPos');
-  const tabAll = document.getElementById('aiTabAll');
+  const filterKw = (document.getElementById('aiFilterKeyword')?.value || '').toLowerCase().trim();
+  const filterRating = document.getElementById('aiFilterRating')?.value || 'all';
+  const filterJourney = document.getElementById('aiFilterJourney')?.value || 'all';
+  const filterFile = document.getElementById('aiFilterFile')?.value || 'all';
 
-  if (tabNeg) tabNeg.classList.toggle('active', filterType === 'negative');
-  if (tabPos) tabPos.classList.toggle('active', filterType === 'positive');
-  if (tabAll) tabAll.classList.toggle('active', filterType === 'all');
-
-  let filtered = data.results || [];
-  if (filterType === 'negative') {
-    filtered = filtered.filter(r => r.sentiment === 'Tiêu cực');
-  } else if (filterType === 'positive') {
-    filtered = filtered.filter(r => r.sentiment === 'Tích cực');
+  let baseList = data.results || [];
+  if (currentAITabFilter === 'negative') {
+    baseList = baseList.filter(r => r.sentiment === 'Tiêu cực');
+  } else if (currentAITabFilter === 'positive') {
+    baseList = baseList.filter(r => r.sentiment === 'Tích cực');
   }
+
+  const filtered = baseList.filter(r => {
+    if (filterKw) {
+      const text = `${r.comment || ''} ${r.userName || ''} ${r.matchedKeywords || ''} ${r.sourceFile || ''}`.toLowerCase();
+      if (!text.includes(filterKw)) return false;
+    }
+    if (filterRating !== 'all') {
+      if (String(r.rating) !== String(filterRating)) return false;
+    }
+    if (filterJourney !== 'all') {
+      if ((r.journey || 'Daily').toLowerCase() !== filterJourney.toLowerCase()) return false;
+    }
+    if (filterFile !== 'all') {
+      if (r.sourceFile !== filterFile) return false;
+    }
+    return true;
+  });
 
   const tbody = document.getElementById('aiTableBody');
   const title = document.getElementById('aiTableTitle');
 
   if (title) {
-    if (filterType === 'negative') title.textContent = `📋 Bảng danh sách đánh giá Tiêu cực (${filtered.length} dòng)`;
-    else if (filterType === 'positive') title.textContent = `📋 Bảng danh sách đánh giá Tích cực (${filtered.length} dòng)`;
-    else title.textContent = `📋 Bảng phân loại cảm xúc chi tiết theo từ điển (${filtered.length} dòng)`;
+    const isFiltered = filterKw || filterRating !== 'all' || filterJourney !== 'all' || filterFile !== 'all';
+    const totalTabCount = baseList.length;
+
+    let subTitleText = '';
+    if (currentAITabFilter === 'negative') subTitleText = 'Bảng danh sách đánh giá Tiêu cực';
+    else if (currentAITabFilter === 'positive') subTitleText = 'Bảng danh sách đánh giá Tích cực';
+    else subTitleText = 'Bảng phân loại cảm xúc chi tiết theo từ điển';
+
+    if (isFiltered) {
+      title.textContent = `📋 ${subTitleText} (Đã lọc Excel: ${filtered.length} / ${totalTabCount} dòng)`;
+    } else {
+      title.textContent = `📋 ${subTitleText} (${totalTabCount} dòng)`;
+    }
   }
 
   if (tbody) {
     if (!filtered.length) {
-      tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted" style="padding: 28px;">Không có dữ liệu trong mục này</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted" style="padding: 28px;">Không tìm thấy dữ liệu trùng khớp với bộ lọc Excel</td></tr>`;
     } else {
       tbody.innerHTML = filtered.map((r, idx) => `
         <tr>
@@ -920,6 +963,22 @@ function switchAITableTab(filterType) {
       `).join('');
     }
   }
+}
+
+function switchAITableTab(filterType) {
+  currentAITabFilter = filterType;
+  const data = activeResults.ai;
+  if (!data) return;
+
+  const tabNeg = document.getElementById('aiTabNeg');
+  const tabPos = document.getElementById('aiTabPos');
+  const tabAll = document.getElementById('aiTabAll');
+
+  if (tabNeg) tabNeg.classList.toggle('active', filterType === 'negative');
+  if (tabPos) tabPos.classList.toggle('active', filterType === 'positive');
+  if (tabAll) tabAll.classList.toggle('active', filterType === 'all');
+
+  applyAITableFilters();
 }
 
 function renderAIResults(data) {
@@ -966,6 +1025,7 @@ function renderAIResults(data) {
       <!-- Data Preview Table AI -->
       <div class="preview-section">
         <div class="preview-header-tabs">
+          <!-- 3 Sub-Tabs -->
           <div class="ai-table-tabs">
             <button class="ai-table-tab-btn active" id="aiTabNeg" onclick="switchAITableTab('negative')">
               ⚠️ Đánh giá Tiêu cực <span class="tab-count count-neg">${data.countNeg || 0}</span>
@@ -977,20 +1037,60 @@ function renderAIResults(data) {
               📋 Tất cả đánh giá <span class="tab-count count-all">${data.totalReviews || 0}</span>
             </button>
           </div>
-          <h3 id="aiTableTitle" style="font-size: 0.88rem; margin-top: 12px; color: var(--text-secondary); font-weight: 500;">📋 Bảng danh sách đánh giá Tiêu cực (${data.countNeg || 0} dòng)</h3>
+
+          <!-- Bộ Lọc Kiểu Excel (Excel AutoFilter Bar) -->
+          <div class="excel-filter-toolbar">
+            <div class="excel-filter-group">
+              <span class="excel-filter-label">🔍 Tìm kiếm:</span>
+              <input type="text" id="aiFilterKeyword" class="excel-filter-input" placeholder="Từ khóa, bình luận, người dùng..." oninput="applyAITableFilters()">
+            </div>
+            <div class="excel-filter-group">
+              <span class="excel-filter-label">⭐ Số sao:</span>
+              <select id="aiFilterRating" class="excel-filter-select" onchange="applyAITableFilters()">
+                <option value="all">Tất cả số sao</option>
+                <option value="1">⭐ 1 sao</option>
+                <option value="2">⭐ 2 sao</option>
+                <option value="3">⭐ 3 sao</option>
+                <option value="4">⭐ 4 sao</option>
+                <option value="5">⭐ 5 sao</option>
+              </select>
+            </div>
+            <div class="excel-filter-group">
+              <span class="excel-filter-label">🗺️ Hành trình:</span>
+              <select id="aiFilterJourney" class="excel-filter-select" onchange="applyAITableFilters()">
+                <option value="all">Tất cả hành trình</option>
+                <option value="Daily">🟦 Daily</option>
+                <option value="Lending">🟧 Lending</option>
+                <option value="RM">🟩 RM</option>
+                <option value="247">🟪 247</option>
+              </select>
+            </div>
+            <div class="excel-filter-group">
+              <span class="excel-filter-label">📁 Nguồn File:</span>
+              <select id="aiFilterFile" class="excel-filter-select" onchange="applyAITableFilters()">
+                <option value="all">Tất cả nguồn file</option>
+                ${getFileOptionsHtml(data.results)}
+              </select>
+            </div>
+            <button class="btn-excel-reset" onclick="resetAITableFilters()" title="Xóa tất cả bộ lọc">
+              🔄 Xóa bộ lọc
+            </button>
+          </div>
+
+          <h3 id="aiTableTitle" style="font-size: 0.88rem; margin-top: 14px; color: var(--text-secondary); font-weight: 500;">📋 Bảng danh sách đánh giá Tiêu cực (${data.countNeg || 0} dòng)</h3>
         </div>
         <div class="table-container">
           <table class="preview-table summary-table">
             <thead>
               <tr>
                 <th style="width: 50px;" class="text-center">STT</th>
-                <th style="width: 140px;">Nguồn File</th>
+                <th style="width: 140px;">Nguồn File <span class="excel-header-btn" onclick="document.getElementById('aiFilterFile').focus()">▼</span></th>
                 <th style="width: 130px;">Người dùng</th>
-                <th style="width: 80px;" class="text-center">Số sao</th>
-                <th style="min-width: 360px; width: 35%;">Bình luận</th>
+                <th style="width: 80px;" class="text-center">Số sao <span class="excel-header-btn" onclick="document.getElementById('aiFilterRating').focus()">▼</span></th>
+                <th style="min-width: 360px; width: 35%;">Bình luận <span class="excel-header-btn" onclick="document.getElementById('aiFilterKeyword').focus()">▼</span></th>
                 <th style="width: 95px;" class="text-center">Ngày</th>
                 <th style="width: 110px;" class="text-center">Phân loại AI</th>
-                <th style="width: 130px;">Hành trình</th>
+                <th style="width: 130px;">Hành trình <span class="excel-header-btn" onclick="document.getElementById('aiFilterJourney').focus()">▼</span></th>
                 <th style="width: 160px;">Từ khóa trùng khớp</th>
               </tr>
             </thead>
@@ -1002,7 +1102,7 @@ function renderAIResults(data) {
     </div>
   `;
 
-  switchAITableTab('negative');
+  resetAITableFilters();
   aiResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 

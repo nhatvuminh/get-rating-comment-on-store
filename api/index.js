@@ -1321,10 +1321,11 @@ async function parseRatingExcel(buffer, fileName) {
 }
 
 async function parseDictionaryFile(buffer, fileName) {
+  const dictItems = [];
   const positiveKeywords = new Set(['tốt', 'tuyệt vời', 'tuyệt', 'ok', 'oke', 'ngon', 'uy tín', 'nhanh', 'tiện', 'hài lòng', 'mượt', 'chuẩn', 'xịn', 'yêu', 'thích', 'xuất sắc']);
   const negativeKeywords = new Set(['lag', 'lỗi', 'đơ', 'rác', 'tệ', 'chậm', 'treo', 'phàn nàn', 'chán', 'kém', 'bực', 'ức chế', 'tệ hại', 'tồi', 'kém chất lượng', 'kém cỏi', 'quá kém', 'không đăng nhập được', 'không nạp được', 'mất tiền', 'bị văng', 'sập', 'không vào được', 'lừa đảo', 'phiền']);
 
-  if (!buffer) return { positiveKeywords, negativeKeywords };
+  if (!buffer) return { positiveKeywords, negativeKeywords, dictItems };
 
   try {
     const ext = path.extname(fileName || '').toLowerCase();
@@ -1332,45 +1333,71 @@ async function parseDictionaryFile(buffer, fileName) {
     if (ext === '.txt' || ext === '.csv') {
       const text = buffer.toString('utf-8');
       const lines = text.split(/\r?\n/);
-      lines.forEach(line => {
-        const trimmed = line.trim().toLowerCase();
+      lines.forEach((line, idx) => {
+        const trimmed = line.trim();
         if (!trimmed) return;
         const parts = trimmed.split(/[,;\t]/);
-        const kw = parts[0].trim();
+        const kw = parts[0] ? parts[0].trim().toLowerCase() : '';
         const tag = parts[1] ? parts[1].trim() : '';
+        const journey = parts[2] ? parts[2].trim() : '';
 
-        if (tag.includes('tiêu cực') || tag.includes('negative') || tag.includes('bad') || tag.includes('lỗi')) {
+        if (!kw || (idx === 0 && (kw.includes('từ khóa') || kw.includes('keyword')))) return;
+
+        const isNeg = tag.toLowerCase().includes('tiêu cực') || tag.toLowerCase().includes('negative') || kw.includes('lỗi') || kw.includes('lag') || kw.includes('tệ') || kw.includes('chậm');
+        if (isNeg) {
           negativeKeywords.add(kw);
-        } else if (tag.includes('tích cực') || tag.includes('positive') || tag.includes('good')) {
-          positiveKeywords.add(kw);
         } else {
-          if (kw.includes('lỗi') || kw.includes('lag') || kw.includes('tệ') || kw.includes('chậm') || kw.includes('chán')) {
-            negativeKeywords.add(kw);
-          } else {
-            positiveKeywords.add(kw);
-          }
+          positiveKeywords.add(kw);
         }
+
+        dictItems.push({
+          keyword: kw,
+          sentiment: isNeg ? 'Tiêu cực' : 'Tích cực',
+          journey: journey || 'Đánh giá chung'
+        });
       });
     } else {
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(buffer);
       workbook.worksheets.forEach(sheet => {
-        sheet.eachRow((row) => {
-          const val1 = row.getCell(1).value ? String(row.getCell(1).value).trim().toLowerCase() : '';
-          const val2 = row.getCell(2).value ? String(row.getCell(2).value).trim().toLowerCase() : '';
-          if (!val1) return;
+        let colMap = { keyword: 1, sentiment: 2, journey: 3 };
+        let headerFound = false;
 
-          if (val2.includes('tiêu cực') || val2.includes('negative') || val2.includes('chưa tốt')) {
-            negativeKeywords.add(val1);
-          } else if (val2.includes('tích cực') || val2.includes('positive') || val2.includes('tốt')) {
-            positiveKeywords.add(val1);
-          } else {
-            if (val1.includes('lỗi') || val1.includes('lag') || val1.includes('tệ') || val1.includes('chậm') || val1.includes('chán')) {
-              negativeKeywords.add(val1);
-            } else {
-              positiveKeywords.add(val1);
-            }
+        sheet.eachRow((row, rowNumber) => {
+          if (rowNumber <= 3 && !headerFound) {
+            row.eachCell((cell, colNum) => {
+              const text = extractCellText(cell).toLowerCase();
+              if (text.includes('từ khóa') || text.includes('keyword') || text.includes('từ')) colMap.keyword = colNum;
+              if (text.includes('cảm xúc') || text.includes('phân loại') || text.includes('loại') || text.includes('sentiment')) colMap.sentiment = colNum;
+              if (text.includes('hành trình') || text.includes('giai đoạn') || text.includes('chủ đề') || text.includes('journey') || text.includes('luồng') || text.includes('bước')) {
+                colMap.journey = colNum;
+                headerFound = true;
+              }
+            });
           }
+
+          const cellKwText = extractCellText(row.getCell(colMap.keyword)).trim();
+          if (rowNumber <= 3 && (cellKwText.toLowerCase().includes('từ khóa') || cellKwText.toLowerCase().includes('keyword'))) return;
+
+          const kw = cellKwText.toLowerCase();
+          const tag = extractCellText(row.getCell(colMap.sentiment)).trim();
+          const journey = extractCellText(row.getCell(colMap.journey)).trim();
+
+          if (!kw) return;
+
+          const isNeg = tag.toLowerCase().includes('tiêu cực') || tag.toLowerCase().includes('negative') || tag.toLowerCase().includes('chưa tốt') || kw.includes('lỗi') || kw.includes('lag') || kw.includes('tệ') || kw.includes('chậm');
+
+          if (isNeg) {
+            negativeKeywords.add(kw);
+          } else {
+            positiveKeywords.add(kw);
+          }
+
+          dictItems.push({
+            keyword: kw,
+            sentiment: isNeg ? 'Tiêu cực' : 'Tích cực',
+            journey: journey || 'Đánh giá chung'
+          });
         });
       });
     }
@@ -1378,56 +1405,84 @@ async function parseDictionaryFile(buffer, fileName) {
     console.error('Error parsing dictionary file:', err.message);
   }
 
-  return { positiveKeywords, negativeKeywords };
+  return { positiveKeywords, negativeKeywords, dictItems };
 }
 
 function classifySentimentWithDict(comment, rating, dict) {
   const textLower = (comment || '').toLowerCase();
   const matchedPos = [];
   const matchedNeg = [];
+  const matchedJourneys = new Set();
 
-  dict.negativeKeywords.forEach(kw => {
-    if (textLower.includes(kw)) matchedNeg.push(kw);
-  });
+  if (Array.isArray(dict.dictItems) && dict.dictItems.length > 0) {
+    dict.dictItems.forEach(item => {
+      if (item.keyword && textLower.includes(item.keyword)) {
+        if (item.sentiment === 'Tiêu cực') {
+          matchedNeg.push(item.keyword);
+        } else {
+          matchedPos.push(item.keyword);
+        }
+        if (item.journey && item.journey !== 'Đánh giá chung') {
+          matchedJourneys.add(item.journey);
+        }
+      }
+    });
+  }
 
-  dict.positiveKeywords.forEach(kw => {
-    if (textLower.includes(kw)) matchedPos.push(kw);
-  });
+  if (matchedNeg.length === 0 && matchedPos.length === 0) {
+    dict.negativeKeywords.forEach(kw => {
+      if (textLower.includes(kw)) matchedNeg.push(kw);
+    });
+    dict.positiveKeywords.forEach(kw => {
+      if (textLower.includes(kw)) matchedPos.push(kw);
+    });
+  }
+
+  let journeyStr = Array.from(matchedJourneys).join(', ');
+
+  if (!journeyStr) {
+    if (textLower.includes('đăng nhập') || textLower.includes('otp') || textLower.includes('xác thực') || textLower.includes('mật khẩu') || textLower.includes('faceid') || textLower.includes('vân tay')) {
+      journeyStr = 'Kích hoạt & Đăng nhập';
+    } else if (textLower.includes('chuyển tiền') || textLower.includes('nạp tiền') || textLower.includes('rút tiền') || textLower.includes('thanh toán') || textLower.includes('giao dịch') || textLower.includes('chuyển khoản')) {
+      journeyStr = 'Giao dịch & Chuyển tiền';
+    } else if (textLower.includes('giao diện') || textLower.includes('ui') || textLower.includes('ux') || textLower.includes('nhìn') || textLower.includes('màu') || textLower.includes('chữ') || textLower.includes('khó nhìn')) {
+      journeyStr = 'Trải nghiệm UI/UX';
+    } else if (textLower.includes('lỗi') || textLower.includes('lag') || textLower.includes('đơ') || textLower.includes('sập') || textLower.includes('văng') || textLower.includes('vào được') || textLower.includes('cập nhật')) {
+      journeyStr = 'Vận hành & Hệ thống';
+    } else if (textLower.includes('hỗ trợ') || textLower.includes('nhân viên') || textLower.includes('cskh') || textLower.includes('tư vấn') || textLower.includes('hotline') || textLower.includes('gọi')) {
+      journeyStr = 'Dịch vụ CSKH';
+    } else {
+      journeyStr = 'Đánh giá chung';
+    }
+  }
+
+  let finalSentiment = 'Trung tính';
+  let badgeClass = 'badge-ai-neutral';
+  let matchedKeywords = '';
 
   if (matchedNeg.length > 0) {
-    return {
-      sentiment: 'Tiêu cực',
-      matchedKeywords: matchedNeg.join(', '),
-      badgeClass: 'badge-ai-negative'
-    };
-  }
-
-  if (matchedPos.length > 0) {
-    return {
-      sentiment: 'Tích cực',
-      matchedKeywords: matchedPos.join(', '),
-      badgeClass: 'badge-ai-positive'
-    };
-  }
-
-  if (rating <= 2) {
-    return {
-      sentiment: 'Tiêu cực',
-      matchedKeywords: `Đánh giá ${rating} sao`,
-      badgeClass: 'badge-ai-negative'
-    };
+    finalSentiment = 'Tiêu cực';
+    matchedKeywords = Array.from(new Set(matchedNeg)).join(', ');
+    badgeClass = 'badge-ai-negative';
+  } else if (matchedPos.length > 0) {
+    finalSentiment = 'Tích cực';
+    matchedKeywords = Array.from(new Set(matchedPos)).join(', ');
+    badgeClass = 'badge-ai-positive';
+  } else if (rating <= 2) {
+    finalSentiment = 'Tiêu cực';
+    matchedKeywords = `Đánh giá ${rating} sao`;
+    badgeClass = 'badge-ai-negative';
   } else if (rating >= 4) {
-    return {
-      sentiment: 'Tích cực',
-      matchedKeywords: `Đánh giá ${rating} sao`,
-      badgeClass: 'badge-ai-positive'
-    };
+    finalSentiment = 'Tích cực';
+    matchedKeywords = `Đánh giá ${rating} sao`;
+    badgeClass = 'badge-ai-positive';
   }
 
   return {
-    sentiment: 'Trung tính',
-    matchedKeywords: 'Không có từ khóa',
-    badgeClass: 'badge-ai-neutral'
+    sentiment: finalSentiment,
+    matchedKeywords,
+    journey: journeyStr,
+    badgeClass
   };
 }
 
@@ -1443,6 +1498,7 @@ async function generateAIAnalysisExcel(results, fileName) {
     { header: 'Bình luận', key: 'comment', width: 55 },
     { header: 'Ngày', key: 'date', width: 14 },
     { header: 'Phân loại AI', key: 'sentiment', width: 16 },
+    { header: 'Hành trình', key: 'journey', width: 24 },
     { header: 'Từ khóa trùng khớp', key: 'matchedKeywords', width: 30 }
   ];
 
@@ -1460,6 +1516,7 @@ async function generateAIAnalysisExcel(results, fileName) {
       comment: r.comment,
       date: r.date,
       sentiment: r.sentiment,
+      journey: r.journey || 'Đánh giá chung',
       matchedKeywords: r.matchedKeywords
     });
 
@@ -1509,7 +1566,7 @@ app.post(['/api/ai/analyze', '/ai/analyze'], upload.fields([{ name: 'ratingFiles
     let countNeu = 0;
 
     const classifiedResults = allReviews.map((r, idx) => {
-      const { sentiment, matchedKeywords, badgeClass } = classifySentimentWithDict(r.comment, r.rating, dict);
+      const { sentiment, matchedKeywords, journey, badgeClass } = classifySentimentWithDict(r.comment, r.rating, dict);
       if (sentiment === 'Tích cực') countPos++;
       else if (sentiment === 'Tiêu cực') countNeg++;
       else countNeu++;
@@ -1519,6 +1576,7 @@ app.post(['/api/ai/analyze', '/ai/analyze'], upload.fields([{ name: 'ratingFiles
         ...r,
         sentiment,
         matchedKeywords,
+        journey,
         badgeClass
       };
     });

@@ -901,6 +901,9 @@ function renderAIResults(data) {
       <td class="text-center">
         <span class="${r.badgeClass}">${escapeHtml(r.sentiment)}</span>
       </td>
+      <td class="journey-cell">
+        <span class="badge-journey">${escapeHtml(r.journey || 'Đánh giá chung')}</span>
+      </td>
       <td class="detail-cell" style="color: var(--accent); font-weight: 600;">${escapeHtml(r.matchedKeywords || '')}</td>
     </tr>
   `).join('');
@@ -913,7 +916,7 @@ function renderAIResults(data) {
           <div class="file-icon">⚡</div>
           <div>
             <div class="file-name">${data.fileName || 'rating_ai_analysis.xlsx'}</div>
-            <div class="file-sub">File Báo cáo Phân tích Cảm xúc Rating AI (Đã gắn nhãn Tích cực / Tiêu cực / Từ khóa)</div>
+            <div class="file-sub">File Báo cáo Phân tích Cảm xúc Rating AI (Đã gắn nhãn Tích cực / Tiêu cực / Hành trình / Từ khóa)</div>
           </div>
         </div>
         <button class="btn btn-download-primary" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);" onclick="triggerDownload('ai')">
@@ -962,11 +965,12 @@ function renderAIResults(data) {
                 <th>Bình luận</th>
                 <th style="width: 100px;" class="text-center">Ngày</th>
                 <th style="width: 120px;" class="text-center">Phân loại AI</th>
-                <th style="width: 200px;">Từ khóa trùng khớp</th>
+                <th style="width: 170px;">Hành trình</th>
+                <th style="width: 180px;">Từ khóa trùng khớp</th>
               </tr>
             </thead>
             <tbody>
-              ${rows || '<tr><td colspan="8" class="text-center">Không có dữ liệu</td></tr>'}
+              ${rows || '<tr><td colspan="9" class="text-center">Không có dữ liệu</td></tr>'}
             </tbody>
           </table>
         </div>

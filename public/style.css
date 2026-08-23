@@ -1140,7 +1140,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .preview-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.83rem;
   text-align: left;
 }
@@ -1148,12 +1149,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .preview-table th {
   position: sticky;
   top: 0;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-weight: 600;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border-color);
-  z-index: 10;
+  background-color: #1a1a24 !important;
+  color: var(--text-primary);
+  font-weight: 700;
+  padding: 14px 14px;
+  border-bottom: 2px solid var(--border-color);
+  z-index: 20;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .preview-table th {
+  background-color: #ffffff !important;
+  color: #1e293b;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .preview-table td {
@@ -1165,6 +1173,18 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .preview-table tbody tr:hover {
   background: var(--bg-card-hover);
+}
+
+.badge-journey {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  white-space: nowrap;
 }
 
 .text-center { text-align: center; }

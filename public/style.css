@@ -110,9 +110,9 @@ body {
 }
 
 .header-content {
-  max-width: 1100px;
+  max-width: 1550px;
   margin: 0 auto;
-  padding: 16px 24px;
+  padding: 16px 28px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -187,9 +187,9 @@ body {
    Main
    ============================================ */
 .main {
-  max-width: 1100px;
+  max-width: 1550px;
   margin: 0 auto;
-  padding: 32px 24px 80px;
+  padding: 32px 28px 80px;
   display: flex;
   flex-direction: column;
   gap: 32px;

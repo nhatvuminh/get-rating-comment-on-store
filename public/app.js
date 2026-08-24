@@ -339,6 +339,7 @@ function displayResults(requestPlatform) {
   if (activeResults.summary) {
     summaryTabCount.textContent = activeResults.summary.topics ? activeResults.summary.topics.length : 0;
     summaryResultsWrapper.innerHTML = renderSummaryTabPanel(activeResults.summary);
+    applyPlatformFilter('summary');
   } else if (!summaryResultsWrapper.children.length) {
     summaryResultsWrapper.innerHTML = `<div class="empty-tab">Chưa có dữ liệu tổng hợp. Bấm "Lấy cả hai" để xem báo cáo tổng hợp.</div>`;
   }
@@ -347,6 +348,7 @@ function displayResults(requestPlatform) {
   if (activeResults.android) {
     androidTabCount.textContent = activeResults.android.error ? 'Lỗi' : (activeResults.android.totalReviews || 0);
     androidResultsWrapper.innerHTML = renderTabPanel(activeResults.android);
+    applyPlatformFilter('android');
   } else if (!androidResultsWrapper.children.length) {
     androidResultsWrapper.innerHTML = `<div class="empty-tab">Chưa có dữ liệu cho Android. Hãy chọn "Lấy đánh giá Google Play".</div>`;
   }
@@ -355,6 +357,7 @@ function displayResults(requestPlatform) {
   if (activeResults.ios) {
     iosTabCount.textContent = activeResults.ios.error ? 'Lỗi' : (activeResults.ios.totalReviews || 0);
     iosResultsWrapper.innerHTML = renderTabPanel(activeResults.ios);
+    applyPlatformFilter('ios');
   } else if (!iosResultsWrapper.children.length) {
     iosResultsWrapper.innerHTML = `<div class="empty-tab">Chưa có dữ liệu cho iOS. Hãy chọn "Lấy đánh giá App Store".</div>`;
   }
@@ -371,40 +374,204 @@ function displayResults(requestPlatform) {
   resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function getIosVersionOptionsHtml(reviews) {
+  if (!reviews || !reviews.length) return '';
+  const versions = [...new Set(reviews.map(r => r.version).filter(Boolean))].sort().reverse();
+  return versions.map(v => `<option value="${escapeHtml(v)}">v${escapeHtml(v)}</option>`).join('');
+}
+
+function applyPlatformFilter(platform) {
+  const data = activeResults[platform];
+  if (!data) return;
+
+  if (platform === 'summary') {
+    const kw = (document.getElementById('summaryFilterKeyword')?.value || '').toLowerCase().trim();
+    const sentiment = document.getElementById('summaryFilterSentiment')?.value || 'all';
+    const sort = document.getElementById('summaryFilterSort')?.value || 'rank_asc';
+
+    let list = (data.topics || []).slice();
+
+    if (kw) {
+      list = list.filter(t => (t.topic || '').toLowerCase().includes(kw) || (t.details || '').toLowerCase().includes(kw));
+    }
+    if (sentiment === 'good') {
+      list = list.filter(t => t.sentiment.includes('Tốt') && !t.sentiment.includes('Chưa'));
+    } else if (sentiment === 'warning') {
+      list = list.filter(t => !t.sentiment.includes('Tốt') || t.sentiment.includes('Chưa'));
+    }
+
+    if (sort === 'rank_asc') {
+      list.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+    } else if (sort === 'count_desc') {
+      list.sort((a, b) => (b.count || 0) - (a.count || 0));
+    } else if (sort === 'count_asc') {
+      list.sort((a, b) => (a.count || 0) - (b.count || 0));
+    } else if (sort === 'topic_asc') {
+      list.sort((a, b) => (a.topic || '').localeCompare(b.topic || ''));
+    }
+
+    const tbody = document.getElementById('summaryTableBody');
+    const title = document.getElementById('summaryTableTitle');
+    if (title) {
+      const isFiltered = kw || sentiment !== 'all' || sort !== 'rank_asc';
+      title.textContent = isFiltered
+        ? `📋 Báo cáo tổng hợp nhóm ý kiến (Đã lọc Excel: ${list.length} / ${data.topics.length} nhóm)`
+        : `📋 Báo cáo tổng hợp nhóm ý kiến & phản hồi khách hàng (${data.topics.length} nhóm chủ đề)`;
+    }
+
+    if (tbody) {
+      if (!list.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted" style="padding: 28px;">Không tìm thấy chủ đề trùng khớp với bộ lọc Excel</td></tr>`;
+      } else {
+        tbody.innerHTML = list.map((t, idx) => {
+          const isGood = t.sentiment.includes('Tốt') && !t.sentiment.includes('Chưa');
+          const badgeClass = isGood ? 'sentiment-badge-good' : 'sentiment-badge-warning';
+          return `
+            <tr>
+              <td class="text-center font-bold" style="font-weight: 700;">${idx + 1}</td>
+              <td class="topic-title-cell">${escapeHtml(t.topic)}</td>
+              <td class="text-center count-cell font-bold">${t.count}</td>
+              <td class="text-center">
+                <span class="sentiment-badge ${badgeClass}">${escapeHtml(t.sentiment)}</span>
+              </td>
+              <td class="detail-cell">${escapeHtml(t.details)}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+    return;
+  }
+
+  // Android or iOS
+  const isAndroid = platform === 'android';
+  const kw = (document.getElementById(`${platform}FilterKeyword`)?.value || '').toLowerCase().trim();
+  const rating = document.getElementById(`${platform}FilterRating`)?.value || 'all';
+  const dateFrom = document.getElementById(`${platform}FilterDateFrom`)?.value || '';
+  const dateTo = document.getElementById(`${platform}FilterDateTo`)?.value || '';
+
+  let list = (data.reviews || []).slice();
+
+  if (kw) {
+    list = list.filter(r => {
+      const fullText = `${r.comment || ''} ${r.userName || ''} ${r.title || ''} ${r.replyText || ''}`.toLowerCase();
+      return fullText.includes(kw);
+    });
+  }
+  if (rating !== 'all') {
+    list = list.filter(r => String(r.rating) === String(rating));
+  }
+  if (dateFrom) {
+    list = list.filter(r => r.date && r.date >= dateFrom);
+  }
+  if (dateTo) {
+    list = list.filter(r => r.date && r.date <= dateTo);
+  }
+
+  const tbody = document.getElementById(`${platform}TableBody`);
+  const title = document.getElementById(`${platform}TableTitle`);
+  const total = (data.reviews || []).length;
+  const isFiltered = kw || rating !== 'all' || dateFrom || dateTo;
+
+  if (title) {
+    if (isFiltered) {
+      title.textContent = `📋 Xem trước danh sách (Đã lọc Excel: ${list.length} / ${total} dòng)`;
+    } else {
+      title.textContent = `📋 Xem trước danh sách (${total} dòng)`;
+    }
+  }
+
+  if (tbody) {
+    if (!list.length) {
+      const colSpan = isAndroid ? 7 : 7;
+      tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center text-muted" style="padding: 28px;">Không tìm thấy đánh giá trùng khớp với bộ lọc Excel</td></tr>`;
+    } else {
+      tbody.innerHTML = list.map((r, idx) => {
+        const starClass = r.rating >= 4 ? 'star-high' : r.rating >= 3 ? 'star-med' : 'star-low';
+        const starsHtml = `<span class="rating-badge ${starClass}">⭐ ${r.rating}</span>`;
+        if (isAndroid) {
+          return `
+            <tr>
+              <td class="text-center font-bold" style="font-weight: 700;">${idx + 1}</td>
+              <td class="font-medium">${escapeHtml(r.userName || 'Ẩn danh')}</td>
+              <td class="text-center">${starsHtml}</td>
+              <td class="comment-cell">${escapeHtml(r.comment || '')}</td>
+              <td class="text-center text-muted date-cell">${r.date || ''}</td>
+              <td class="text-center">${r.thumbsUp || 0}</td>
+              <td class="reply-cell">${escapeHtml(r.replyText || '')}</td>
+            </tr>
+          `;
+        } else {
+          return `
+            <tr>
+              <td class="text-center font-bold" style="font-weight: 700;">${idx + 1}</td>
+              <td class="font-medium">${escapeHtml(r.userName || 'Ẩn danh')}</td>
+              <td class="text-center">${starsHtml}</td>
+              <td class="title-cell">${escapeHtml(r.title || '')}</td>
+              <td class="comment-cell">${escapeHtml(r.comment || '')}</td>
+              <td class="text-center text-muted date-cell">${r.date || ''}</td>
+              <td class="text-center text-muted">${escapeHtml(r.version || '')}</td>
+            </tr>
+          `;
+        }
+      }).join('');
+    }
+  }
+}
+
+function resetPlatformFilter(platform) {
+  const kw = document.getElementById(`${platform}FilterKeyword`);
+  if (kw) kw.value = '';
+
+  const rating = document.getElementById(`${platform}FilterRating`);
+  if (rating) rating.value = 'all';
+
+  const dateFrom = document.getElementById(`${platform}FilterDateFrom`);
+  if (dateFrom) dateFrom.value = '';
+
+  const dateTo = document.getElementById(`${platform}FilterDateTo`);
+  if (dateTo) dateTo.value = '';
+
+  const sentiment = document.getElementById('summaryFilterSentiment');
+  if (sentiment) sentiment.value = 'all';
+
+  const sort = document.getElementById('summaryFilterSort');
+  if (sort) sort.value = 'rank_asc';
+
+  applyPlatformFilter(platform);
+}
+
+function handleSort(platform, col) {
+  const data = activeResults[platform];
+  if (!data || !data.reviews) return;
+
+  if (!sortState[platform]) {
+    sortState[platform] = { column: col, dir: 'desc' };
+  } else if (sortState[platform].column === col) {
+    sortState[platform].dir = sortState[platform].dir === 'desc' ? 'asc' : 'desc';
+  } else {
+    sortState[platform].column = col;
+    sortState[platform].dir = 'desc';
+  }
+
+  const mult = sortState[platform].dir === 'desc' ? -1 : 1;
+  data.reviews.sort((a, b) => {
+    if (col === 'rating') {
+      return ((a.rating || 0) - (b.rating || 0)) * mult;
+    }
+    if (col === 'date') {
+      return ((new Date(a.date || 0)) - (new Date(b.date || 0))) * mult;
+    }
+    return 0;
+  });
+
+  applyPlatformFilter(platform);
+}
+
 let sortState = {
   android: { column: 'date', dir: 'desc' },
   ios: { column: 'date', dir: 'desc' }
 };
-
-function handleSort(platform, col) {
-  if (col !== 'rating' && col !== 'date') return;
-  if (!sortState[platform]) {
-    sortState[platform] = { column: 'date', dir: 'desc' };
-  }
-  const current = sortState[platform];
-  if (current.column === col) {
-    current.dir = current.dir === 'desc' ? 'asc' : 'desc';
-  } else {
-    current.column = col;
-    current.dir = 'desc';
-  }
-
-  if (activeResults[platform]) {
-    const wrapper = platform === 'android' ? androidResultsWrapper : iosResultsWrapper;
-    wrapper.innerHTML = renderTabPanel(activeResults[platform]);
-  }
-}
-
-function getSortHeaderHtml(platform, col, title, widthStyle = '') {
-  const current = sortState[platform] || { column: 'date', dir: 'desc' };
-  const isActive = current.column === col;
-  const icon = isActive ? (current.dir === 'desc' ? '⬇️' : '⬆️') : '↕️';
-  const activeClass = isActive ? 'active-sort' : '';
-  
-  return `<th class="sortable-th ${activeClass}" style="${widthStyle}" onclick="handleSort('${platform}', '${col}')" title="Click để sắp xếp theo ${title}">
-    ${title}<span class="sort-icon">${icon}</span>
-  </th>`;
-}
 
 function renderTabPanel(result) {
   if (result.error) {
@@ -416,88 +583,39 @@ function renderTabPanel(result) {
   }
 
   const isAndroid = result.platform === 'android';
-  const state = sortState[result.platform] || { column: 'date', dir: 'desc' };
-  const mult = state.dir === 'desc' ? -1 : 1;
-
-  const rawReviews = result.reviews || [];
-  const reviews = rawReviews.slice().sort((a, b) => {
-    if (state.column === 'rating') {
-      return ((a.rating || 0) - (b.rating || 0)) * mult;
-    }
-    if (state.column === 'date') {
-      const dA = a.date ? new Date(a.date).getTime() : 0;
-      const dB = b.date ? new Date(b.date).getTime() : 0;
-      return (dA - dB) * mult;
-    }
-    return 0;
-  });
-
-  const total = result.totalReviews || reviews.length;
-  const avg = result.avgRating !== undefined ? result.avgRating : (total > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / total).toFixed(2) : '0.0');
+  const total = result.totalReviews || (result.reviews ? result.reviews.length : 0);
+  const avg = result.avgRating !== undefined ? result.avgRating : (total > 0 ? (result.reviews.reduce((s, r) => s + r.rating, 0) / total).toFixed(2) : '0.0');
   const ratingCounts = result.ratingCounts || { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-
   const getPercent = (count) => total > 0 ? Math.round((count / total) * 100) : 0;
-  const previewReviews = reviews.slice(0, 100);
 
   let tableHeader = isAndroid ? `
     <tr>
-      <th style="width: 50px;">STT</th>
+      <th style="width: 50px;" class="text-center">STT</th>
       <th style="width: 140px;">Người dùng</th>
-      ${getSortHeaderHtml('android', 'rating', 'Số sao', 'width: 100px;')}
-      <th style="min-width: 360px; width: 40%;">Bình luận</th>
-      ${getSortHeaderHtml('android', 'date', 'Ngày', 'width: 110px;')}
-      <th style="width: 70px;">Thích</th>
+      <th style="width: 100px;" class="text-center sortable-th" onclick="handleSort('android', 'rating')" title="Click để sắp xếp số sao">Số sao <span class="excel-header-btn" onclick="document.getElementById('androidFilterRating').focus()">▼</span></th>
+      <th style="min-width: 340px; width: 40%;">Bình luận <span class="excel-header-btn" onclick="document.getElementById('androidFilterKeyword').focus()">▼</span></th>
+      <th style="width: 125px; min-width: 115px;" class="text-center sortable-th" onclick="handleSort('android', 'date')" title="Click để sắp xếp ngày">Ngày <span class="excel-header-btn" onclick="document.getElementById('androidFilterDateFrom').focus()">▼</span></th>
+      <th style="width: 75px;" class="text-center">Thích</th>
       <th style="width: 200px;">Phản hồi từ NPT</th>
     </tr>
   ` : `
     <tr>
-      <th style="width: 50px;">STT</th>
+      <th style="width: 50px;" class="text-center">STT</th>
       <th style="width: 140px;">Người dùng</th>
-      ${getSortHeaderHtml('ios', 'rating', 'Số sao', 'width: 100px;')}
-      <th style="width: 150px;">Tiêu đề</th>
-      <th style="min-width: 360px; width: 40%;">Bình luận</th>
-      ${getSortHeaderHtml('ios', 'date', 'Ngày', 'width: 110px;')}
-      <th style="width: 90px;">Phiên bản</th>
+      <th style="width: 100px;" class="text-center sortable-th" onclick="handleSort('ios', 'rating')" title="Click để sắp xếp số sao">Số sao <span class="excel-header-btn" onclick="document.getElementById('iosFilterRating').focus()">▼</span></th>
+      <th style="width: 150px;">Tiêu đề <span class="excel-header-btn" onclick="document.getElementById('iosFilterKeyword').focus()">▼</span></th>
+      <th style="min-width: 340px; width: 38%;">Bình luận <span class="excel-header-btn" onclick="document.getElementById('iosFilterKeyword').focus()">▼</span></th>
+      <th style="width: 125px; min-width: 115px;" class="text-center sortable-th" onclick="handleSort('ios', 'date')" title="Click để sắp xếp ngày">Ngày <span class="excel-header-btn" onclick="document.getElementById('iosFilterDateFrom').focus()">▼</span></th>
+      <th style="width: 95px;" class="text-center">Phiên bản</th>
     </tr>
   `;
-
-  let tableRows = previewReviews.map((r, idx) => {
-    const starClass = r.rating >= 4 ? 'star-high' : r.rating >= 3 ? 'star-med' : 'star-low';
-    const starsHtml = `<span class="rating-badge ${starClass}">⭐ ${r.rating}</span>`;
-    
-    if (isAndroid) {
-      return `
-        <tr>
-          <td class="text-center">${idx + 1}</td>
-          <td class="font-medium">${escapeHtml(r.userName || 'Ẩn danh')}</td>
-          <td class="text-center">${starsHtml}</td>
-          <td class="comment-cell">${escapeHtml(r.comment || '')}</td>
-          <td class="text-center text-muted">${r.date || ''}</td>
-          <td class="text-center">${r.thumbsUp || 0}</td>
-          <td class="reply-cell">${escapeHtml(r.replyText || '')}</td>
-        </tr>
-      `;
-    } else {
-      return `
-        <tr>
-          <td class="text-center">${idx + 1}</td>
-          <td class="font-medium">${escapeHtml(r.userName || 'Ẩn danh')}</td>
-          <td class="text-center">${starsHtml}</td>
-          <td class="title-cell">${escapeHtml(r.title || '')}</td>
-          <td class="comment-cell">${escapeHtml(r.comment || '')}</td>
-          <td class="text-center text-muted">${r.date || ''}</td>
-          <td class="text-center text-muted">${escapeHtml(r.version || '')}</td>
-        </tr>
-      `;
-    }
-  }).join('');
 
   return `
     <div class="tab-panel-inner">
       <!-- Download Bar -->
       <div class="download-bar ${result.platform}">
         <div class="download-info">
-          <div class="file-icon">📊</div>
+          <div class="file-icon">${isAndroid ? '🤖' : '🍏'}</div>
           <div>
             <div class="file-name">${result.fileName}</div>
             <div class="file-sub">Đã tạo file sẵn sàng - Tổng cộng ${total.toLocaleString()} đánh giá</div>
@@ -546,12 +664,45 @@ function renderTabPanel(result) {
       <!-- Data Preview Table -->
       <div class="preview-section">
         <div class="preview-header">
-          <h3>Xem trước danh sách ${reviews.length > 100 ? `(100 / ${total} dòng)` : `(${total} dòng)`}</h3>
+          <!-- Excel Filter Toolbar -->
+          <div class="excel-filter-toolbar">
+            <div class="excel-filter-group">
+              <span class="excel-filter-label">🔍 Tìm kiếm:</span>
+              <input type="text" id="${result.platform}FilterKeyword" class="excel-filter-input" placeholder="${isAndroid ? 'Từ khóa, bình luận, người dùng...' : 'Tiêu đề, bình luận, người dùng...'}" oninput="applyPlatformFilter('${result.platform}')">
+            </div>
+            <div class="excel-filter-group">
+              <span class="excel-filter-label">⭐ Số sao:</span>
+              <select id="${result.platform}FilterRating" class="excel-filter-select" onchange="applyPlatformFilter('${result.platform}')">
+                <option value="all">Tất cả số sao</option>
+                <option value="5">⭐ 5 sao</option>
+                <option value="4">⭐ 4 sao</option>
+                <option value="3">⭐ 3 sao</option>
+                <option value="2">⭐ 2 sao</option>
+                <option value="1">⭐ 1 sao</option>
+              </select>
+            </div>
+            <div class="excel-filter-group">
+              <span class="excel-filter-label">📅 Từ ngày:</span>
+              <input type="date" id="${result.platform}FilterDateFrom" class="excel-filter-input date-input" onchange="applyPlatformFilter('${result.platform}')">
+            </div>
+            <div class="excel-filter-group">
+              <span class="excel-filter-label">📅 Đến ngày:</span>
+              <input type="date" id="${result.platform}FilterDateTo" class="excel-filter-input date-input" onchange="applyPlatformFilter('${result.platform}')">
+            </div>
+            <button class="btn-excel-reset" onclick="resetPlatformFilter('${result.platform}')" title="Xóa tất cả bộ lọc">
+              🔄 Xóa bộ lọc
+            </button>
+          </div>
+
+          <h3 id="${result.platform}TableTitle" style="margin-top: 14px; font-size: 0.88rem; color: var(--text-secondary); font-weight: 500;">
+            📋 Xem trước danh sách (${total} dòng)
+          </h3>
         </div>
         <div class="table-container">
           <table class="preview-table">
             <thead>${tableHeader}</thead>
-            <tbody>${tableRows || '<tr><td colspan="7" class="text-center">Không có dữ liệu</td></tr>'}</tbody>
+            <tbody id="${result.platform}TableBody">
+            </tbody>
           </table>
         </div>
       </div>
@@ -581,23 +732,6 @@ function renderSummaryTabPanel(summaryData) {
   const topics = summaryData.topics || [];
   const totalCombined = summaryData.totalCombined || topics.reduce((s, t) => s + t.count, 0);
   const avgCombined = summaryData.avgCombined || '0.00';
-
-  const rowsHtml = topics.map(t => {
-    const isGood = t.sentiment.includes('Tốt') && !t.sentiment.includes('Chưa');
-    const badgeClass = isGood ? 'sentiment-badge-good' : 'sentiment-badge-warning';
-    
-    return `
-      <tr>
-        <td class="text-center font-bold" style="font-weight: 700;">${t.rank}</td>
-        <td class="topic-title-cell">${escapeHtml(t.topic)}</td>
-        <td class="text-center count-cell">${t.count}</td>
-        <td class="text-center">
-          <span class="sentiment-badge ${badgeClass}">${escapeHtml(t.sentiment)}</span>
-        </td>
-        <td class="detail-cell">${escapeHtml(t.details)}</td>
-      </tr>
-    `;
-  }).join('');
 
   return `
     <div class="tab-panel-inner">
@@ -639,21 +773,50 @@ function renderSummaryTabPanel(summaryData) {
       <!-- Data Preview Table Summary -->
       <div class="preview-section">
         <div class="preview-header">
-          <h3>📋 Báo cáo tổng hợp nhóm ý kiến & phản hồi khách hàng (${topics.length} nhóm chủ đề)</h3>
+          <!-- Excel Filter Toolbar for Summary -->
+          <div class="excel-filter-toolbar">
+            <div class="excel-filter-group">
+              <span class="excel-filter-label">🔍 Tìm kiếm:</span>
+              <input type="text" id="summaryFilterKeyword" class="excel-filter-input" placeholder="Chủ đề, chi tiết ý kiến..." oninput="applyPlatformFilter('summary')">
+            </div>
+            <div class="excel-filter-group">
+              <span class="excel-filter-label">🏷️ Đánh giá:</span>
+              <select id="summaryFilterSentiment" class="excel-filter-select" onchange="applyPlatformFilter('summary')">
+                <option value="all">Tất cả đánh giá</option>
+                <option value="good">✅ Đánh giá Tốt</option>
+                <option value="warning">⚠️ Cần cải thiện</option>
+              </select>
+            </div>
+            <div class="excel-filter-group">
+              <span class="excel-filter-label">🔢 Sắp xếp:</span>
+              <select id="summaryFilterSort" class="excel-filter-select" onchange="applyPlatformFilter('summary')">
+                <option value="rank_asc">Xếp hạng (1 ➔ N) ⬆️</option>
+                <option value="count_desc">Số ý kiến nhiều nhất ⬇️</option>
+                <option value="count_asc">Số ý kiến ít nhất ⬆️</option>
+                <option value="topic_asc">Tên chủ đề (A ➔ Z) 🔤</option>
+              </select>
+            </div>
+            <button class="btn-excel-reset" onclick="resetPlatformFilter('summary')" title="Xóa tất cả bộ lọc">
+              🔄 Xóa bộ lọc
+            </button>
+          </div>
+
+          <h3 id="summaryTableTitle" style="margin-top: 14px; font-size: 0.88rem; color: var(--text-secondary); font-weight: 500;">
+            📋 Báo cáo tổng hợp nhóm ý kiến & phản hồi khách hàng (${topics.length} nhóm chủ đề)
+          </h3>
         </div>
         <div class="table-container">
           <table class="preview-table summary-table">
             <thead>
               <tr>
                 <th style="width: 90px;" class="text-center">Xếp hạng</th>
-                <th style="width: 250px;">Chủ đề</th>
-                <th style="width: 110px;" class="text-center">Số ý kiến</th>
-                <th style="width: 130px;" class="text-center">Đánh giá</th>
-                <th>Chi tiết</th>
+                <th style="width: 250px;">Chủ đề <span class="excel-header-btn" onclick="document.getElementById('summaryFilterKeyword').focus()">▼</span></th>
+                <th style="width: 110px;" class="text-center">Số ý kiến <span class="excel-header-btn" onclick="document.getElementById('summaryFilterSort').focus()">▼</span></th>
+                <th style="width: 130px;" class="text-center">Đánh giá <span class="excel-header-btn" onclick="document.getElementById('summaryFilterSentiment').focus()">▼</span></th>
+                <th>Chi tiết <span class="excel-header-btn" onclick="document.getElementById('summaryFilterKeyword').focus()">▼</span></th>
               </tr>
             </thead>
-            <tbody>
-              ${rowsHtml}
+            <tbody id="summaryTableBody">
             </tbody>
           </table>
         </div>
@@ -860,10 +1023,42 @@ let currentAITabFilter = 'negative';
 function getJourneyBadgeClass(journey) {
   const j = (journey || '').toLowerCase();
   if (j.includes('daily')) return 'journey-daily';
-  if (j.includes('lending') || j.includes('vay') || j.includes('giải ngân')) return 'journey-lending';
-  if (j.includes('rm') || j.includes('cán bộ') || j.includes('nhân viên')) return 'journey-rm';
-  if (j.includes('247') || j.includes('tổng đài') || j.includes('hotline') || j.includes('khiếu nại')) return 'journey-247';
+  if (j.includes('lending') || j.includes('vay') || j.includes('giải ngân') || j.includes('bảo lãnh')) return 'journey-lending';
+  if (j.includes('kinh doanh') || j.includes('rm') || j.includes('cán bộ') || j.includes('nhân viên')) return 'journey-rm';
+  if (j.includes('247') || j.includes('mb247') || j.includes('tổng đài')) return 'journey-247';
+  if (j.includes('cntt') || j.includes('hệ thống') || j.includes('chậm') || j.includes('lag')) return 'journey-cntt';
+  if (j.includes('tf') || j.includes('quốc tế') || j.includes('ngoại tệ')) return 'journey-tf';
+  if (j.includes('quỹ') || j.includes('quầy') || j.includes('chi nhánh')) return 'journey-quay';
+  if (j.includes('ui') || j.includes('ux') || j.includes('giao diện')) return 'journey-uiux';
+  if (j.includes('onboarding') || j.includes('sinh trắc')) return 'journey-onboarding';
+  if (j.includes('thẻ') || j.includes('the')) return 'journey-the';
   return 'journey-default';
+}
+
+function getJourneyOptionsHtml(results) {
+  const defaultJourneys = [
+    'Daily',
+    'Khối kinh doanh',
+    'Lending',
+    'CNTT',
+    'Trung tâm MB247',
+    'Trung tâm quỹ và dịch vụ KH',
+    'TF',
+    'UI UX',
+    'Onboarding',
+    'Team Thẻ'
+  ];
+  const present = Array.isArray(results)
+    ? Array.from(new Set(results.map(r => r.journey).filter(Boolean)))
+    : [];
+  const allJourneys = Array.from(new Set([...defaultJourneys, ...present]));
+  return allJourneys.map(j => `<option value="${escapeHtml(j)}">${escapeHtml(j)}</option>`).join('');
+}
+
+function getFeatureOptionsHtml(results) {
+  if (!Array.isArray(results)) return '';
+  const features = Array.from(new Set(results.map(r => r.feature).filter(Boolean))).sort();
+  return features.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
 }
 
 function getFileOptionsHtml(results) {
@@ -876,12 +1071,18 @@ function resetAITableFilters() {
   const kw = document.getElementById('aiFilterKeyword');
   const rating = document.getElementById('aiFilterRating');
   const journey = document.getElementById('aiFilterJourney');
+  const feature = document.getElementById('aiFilterFeature');
   const file = document.getElementById('aiFilterFile');
+  const dateFrom = document.getElementById('aiFilterDateFrom');
+  const dateTo = document.getElementById('aiFilterDateTo');
 
   if (kw) kw.value = '';
   if (rating) rating.value = 'all';
   if (journey) journey.value = 'all';
+  if (feature) feature.value = 'all';
   if (file) file.value = 'all';
+  if (dateFrom) dateFrom.value = '';
+  if (dateTo) dateTo.value = '';
 
   applyAITableFilters();
 }
@@ -893,7 +1094,10 @@ function applyAITableFilters() {
   const filterKw = (document.getElementById('aiFilterKeyword')?.value || '').toLowerCase().trim();
   const filterRating = document.getElementById('aiFilterRating')?.value || 'all';
   const filterJourney = document.getElementById('aiFilterJourney')?.value || 'all';
+  const filterFeature = document.getElementById('aiFilterFeature')?.value || 'all';
   const filterFile = document.getElementById('aiFilterFile')?.value || 'all';
+  const filterDateFrom = document.getElementById('aiFilterDateFrom')?.value || '';
+  const filterDateTo = document.getElementById('aiFilterDateTo')?.value || '';
 
   let baseList = data.results || [];
   if (currentAITabFilter === 'negative') {
@@ -904,7 +1108,7 @@ function applyAITableFilters() {
 
   const filtered = baseList.filter(r => {
     if (filterKw) {
-      const text = `${r.comment || ''} ${r.userName || ''} ${r.matchedKeywords || ''} ${r.sourceFile || ''}`.toLowerCase();
+      const text = `${r.comment || ''} ${r.userName || ''} ${r.matchedKeywords || ''} ${r.journey || ''} ${r.feature || ''} ${r.sourceFile || ''}`.toLowerCase();
       if (!text.includes(filterKw)) return false;
     }
     if (filterRating !== 'all') {
@@ -913,9 +1117,14 @@ function applyAITableFilters() {
     if (filterJourney !== 'all') {
       if ((r.journey || 'Daily').toLowerCase() !== filterJourney.toLowerCase()) return false;
     }
+    if (filterFeature !== 'all') {
+      if ((r.feature || 'Chưa phân loại').toLowerCase() !== filterFeature.toLowerCase()) return false;
+    }
     if (filterFile !== 'all') {
       if (r.sourceFile !== filterFile) return false;
     }
+    if (filterDateFrom && r.date && r.date < filterDateFrom) return false;
+    if (filterDateTo && r.date && r.date > filterDateTo) return false;
     return true;
   });
 
@@ -923,7 +1132,7 @@ function applyAITableFilters() {
   const title = document.getElementById('aiTableTitle');
 
   if (title) {
-    const isFiltered = filterKw || filterRating !== 'all' || filterJourney !== 'all' || filterFile !== 'all';
+    const isFiltered = filterKw || filterRating !== 'all' || filterJourney !== 'all' || filterFeature !== 'all' || filterFile !== 'all' || filterDateFrom || filterDateTo;
     const totalTabCount = baseList.length;
 
     let subTitleText = '';
@@ -940,7 +1149,7 @@ function applyAITableFilters() {
 
   if (tbody) {
     if (!filtered.length) {
-      tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted" style="padding: 28px;">Không tìm thấy dữ liệu trùng khớp với bộ lọc Excel</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted" style="padding: 28px;">Không tìm thấy dữ liệu trùng khớp với bộ lọc Excel</td></tr>`;
     } else {
       tbody.innerHTML = filtered.map((r, idx) => `
         <tr>
@@ -951,14 +1160,17 @@ function applyAITableFilters() {
             <span class="rating-badge ${r.rating >= 4 ? 'star-high' : r.rating >= 3 ? 'star-med' : 'star-low'}">⭐ ${r.rating}</span>
           </td>
           <td class="comment-cell">${escapeHtml(r.comment || '')}</td>
-          <td class="text-center text-muted">${r.date || ''}</td>
+          <td class="text-center text-muted date-cell">${r.date || ''}</td>
           <td class="text-center">
             <span class="${r.badgeClass}">${escapeHtml(r.sentiment)}</span>
           </td>
           <td class="journey-cell">
             <span class="badge-journey ${getJourneyBadgeClass(r.journey)}">${escapeHtml(r.journey || 'Daily')}</span>
           </td>
-          <td class="detail-cell" style="color: var(--accent); font-weight: 600;">${escapeHtml(r.matchedKeywords || '')}</td>
+          <td class="feature-cell">
+            <span class="badge-feature">${escapeHtml(r.feature || 'Trải nghiệm chung')}</span>
+          </td>
+          <td class="keyword-cell">${escapeHtml(r.matchedKeywords || '')}</td>
         </tr>
       `).join('');
     }
@@ -993,7 +1205,7 @@ function renderAIResults(data) {
           <div class="file-icon">⚡</div>
           <div>
             <div class="file-name">${data.fileName || 'rating_ai_analysis.xlsx'}</div>
-            <div class="file-sub">File Báo cáo Phân tích Cảm xúc Rating AI (Đã gắn nhãn Tích cực / Tiêu cực / Hành trình / Từ khóa)</div>
+            <div class="file-sub">File Báo cáo Phân tích Cảm xúc Rating AI (Đã gắn nhãn Tích cực / Tiêu cực / Hành trình / Tính năng / Từ khóa)</div>
           </div>
         </div>
         <button class="btn btn-download-primary" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);" onclick="triggerDownload('ai')">
@@ -1056,13 +1268,25 @@ function renderAIResults(data) {
               </select>
             </div>
             <div class="excel-filter-group">
+              <span class="excel-filter-label">📅 Từ ngày:</span>
+              <input type="date" id="aiFilterDateFrom" class="excel-filter-input" onchange="applyAITableFilters()">
+            </div>
+            <div class="excel-filter-group">
+              <span class="excel-filter-label">📅 Đến ngày:</span>
+              <input type="date" id="aiFilterDateTo" class="excel-filter-input" onchange="applyAITableFilters()">
+            </div>
+            <div class="excel-filter-group">
               <span class="excel-filter-label">🗺️ Hành trình:</span>
               <select id="aiFilterJourney" class="excel-filter-select" onchange="applyAITableFilters()">
                 <option value="all">Tất cả hành trình</option>
-                <option value="Daily">🟦 Daily</option>
-                <option value="Lending">🟧 Lending</option>
-                <option value="RM">🟩 RM</option>
-                <option value="247">🟪 247</option>
+                ${getJourneyOptionsHtml(data.results)}
+              </select>
+            </div>
+            <div class="excel-filter-group">
+              <span class="excel-filter-label">⚙️ Tính năng:</span>
+              <select id="aiFilterFeature" class="excel-filter-select" onchange="applyAITableFilters()">
+                <option value="all">Tất cả tính năng</option>
+                ${getFeatureOptionsHtml(data.results)}
               </select>
             </div>
             <div class="excel-filter-group">
@@ -1087,11 +1311,12 @@ function renderAIResults(data) {
                 <th style="width: 140px;">Nguồn File <span class="excel-header-btn" onclick="document.getElementById('aiFilterFile').focus()">▼</span></th>
                 <th style="width: 130px;">Người dùng</th>
                 <th style="width: 80px;" class="text-center">Số sao <span class="excel-header-btn" onclick="document.getElementById('aiFilterRating').focus()">▼</span></th>
-                <th style="min-width: 360px; width: 35%;">Bình luận <span class="excel-header-btn" onclick="document.getElementById('aiFilterKeyword').focus()">▼</span></th>
-                <th style="width: 95px;" class="text-center">Ngày</th>
-                <th style="width: 110px;" class="text-center">Phân loại AI</th>
-                <th style="width: 130px;">Hành trình <span class="excel-header-btn" onclick="document.getElementById('aiFilterJourney').focus()">▼</span></th>
-                <th style="width: 160px;">Từ khóa trùng khớp</th>
+                <th style="min-width: 320px; width: 28%;">Bình luận <span class="excel-header-btn" onclick="document.getElementById('aiFilterKeyword').focus()">▼</span></th>
+                <th style="width: 125px; min-width: 115px;" class="text-center">Ngày <span class="excel-header-btn" onclick="document.getElementById('aiFilterDateFrom').focus()">▼</span></th>
+                <th style="width: 105px;" class="text-center">Phân loại AI</th>
+                <th style="width: 140px;">Hành trình <span class="excel-header-btn" onclick="document.getElementById('aiFilterJourney').focus()">▼</span></th>
+                <th style="width: 140px;">Tính năng <span class="excel-header-btn" onclick="document.getElementById('aiFilterFeature').focus()">▼</span></th>
+                <th style="min-width: 210px; width: 230px;">Từ khóa trùng khớp</th>
               </tr>
             </thead>
             <tbody id="aiTableBody">

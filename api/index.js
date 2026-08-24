@@ -1320,9 +1320,404 @@ async function parseRatingExcel(buffer, fileName) {
   return reviews;
 }
 
+const DEFAULT_DICTIONARY_ITEMS = [
+  // 1. Thuế
+  { keyword: 'thanh toán thuế', feature: 'thanh toán thuế', journey: 'Daily' },
+  { keyword: 'thue dien tu', feature: 'thanh toán thuế', journey: 'Daily' },
+  { keyword: 'thuế điện tử', feature: 'thanh toán thuế', journey: 'Daily' },
+  { keyword: 'nộp thuế', feature: 'thanh toán thuế', journey: 'Daily' },
+  { keyword: 'nop thue', feature: 'thanh toán thuế', journey: 'Daily' },
+  { keyword: 'thuế', feature: 'thanh toán thuế', journey: 'Daily' },
+  { keyword: 'thue', feature: 'thanh toán thuế', journey: 'Daily' },
+
+  // 2. Chuyển tiền / Thanh toán / Payroll
+  { keyword: 'chuyển khoản theo lô', feature: 'Payroll', journey: 'Daily' },
+  { keyword: 'chuyen khoan theo lo', feature: 'Payroll', journey: 'Daily' },
+  { keyword: 'chuyển theo lô', feature: 'chuyển tiền', journey: 'Daily' },
+  { keyword: 'chuyen theo lo', feature: 'chuyển tiền', journey: 'Daily' },
+  { keyword: 'chi lương', feature: 'Payroll', journey: 'Daily' },
+  { keyword: 'chi luong', feature: 'Payroll', journey: 'Daily' },
+  { keyword: 'bảng lương', feature: 'Payroll', journey: 'Daily' },
+  { keyword: 'trả lương', feature: 'Payroll', journey: 'Daily' },
+  { keyword: 'lương', feature: 'Payroll', journey: 'Daily' },
+  { keyword: 'luong', feature: 'Payroll', journey: 'Daily' },
+  { keyword: 'chuyển liên ngân hàng', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'chuyển khoản', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'chuyen khoan', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'chuyển tiền', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'chuyen tien', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'đi tiền', feature: 'chuyển tiền', journey: 'Daily' },
+  { keyword: 'di tien', feature: 'chuyển tiền', journey: 'Daily' },
+  { keyword: 'số tài khoản', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'so tai khoan', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'thanh toán', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'thanh toan', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'quét qr', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'quet qr', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'qr', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'stk', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'nạp tiền', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'nap tien', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'rút tiền', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+  { keyword: 'rut tien', feature: 'Thanh toán/Chuyển tiền', journey: 'Daily' },
+
+  // 3. Bảo hiểm xã hội
+  { keyword: 'thanh toán bảo hiểm xã hội', feature: 'Thanh toán bảo hiểm xã hội', journey: 'Daily' },
+  { keyword: 'bảo hiểm xã hội', feature: 'Thanh toán bảo hiểm xã hội', journey: 'Daily' },
+  { keyword: 'bao hiem xa hoi', feature: 'Thanh toán bảo hiểm xã hội', journey: 'Daily' },
+  { keyword: 'bhxh', feature: 'Thanh toán bảo hiểm xã hội', journey: 'Daily' },
+  { keyword: 'bảo hiểm', feature: 'Thanh toán bảo hiểm xã hội', journey: 'Daily' },
+  { keyword: 'bao hiem', feature: 'Thanh toán bảo hiểm xã hội', journey: 'Daily' },
+
+  // 4. Tài khoản (chung)
+  { keyword: 'tài khoản', feature: 'Tài khoản', journey: 'Daily' },
+  { keyword: 'tai khoan', feature: 'Tài khoản', journey: 'Daily' },
+
+  // 5. Đăng nhập (MỚI THEO FILE TỪ ĐIỂN CỦA BẠN)
+  { keyword: 'không đăng nhập được', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'khong dang nhap duoc', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'không vào được tài khoản', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'khong vao duoc tai khoan', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'không vào được app', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'khong vao duoc app', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'không truy cập được', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'khong truy cap duoc', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'tài khoản bị khóa', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'tai khoan bi khoa', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'mở khóa tài khoản', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'mo khoa tai khoan', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'khóa đăng nhập', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'khoa dang nhap', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'quên mật khẩu', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'quen mat khau', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'sai mật khẩu', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'sai mat khau', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'đổi mật khẩu', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'doi mat khau', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'reset mật khẩu', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'reset mat khau', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'đặt lại mật khẩu', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'dat lai mat khau', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'mật khẩu', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'mat khau', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'password', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'tên đăng nhập', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'ten dang nhap', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'user đăng nhập', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'user dang nhap', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'username', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'phiên đăng nhập', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'phien dang nhap', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'hết phiên', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'het phien', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'session', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'đăng xuất', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'dang xuat', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'logout', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'log in', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'login', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'vào app', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'vao app', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'đăng nhập', feature: 'Đăng nhập', journey: 'Daily' },
+  { keyword: 'dang nhap', feature: 'Đăng nhập', journey: 'Daily' },
+
+  // 5. Tiền gửi / Tiết kiệm
+  { keyword: 'lãi suất tiết kiệm', feature: 'Tiền gửi', journey: 'Daily' },
+  { keyword: 'sổ tiết kiệm', feature: 'Tiền gửi', journey: 'Daily' },
+  { keyword: 'siêu lãi ngày', feature: 'Tiền gửi', journey: 'Daily' },
+  { keyword: 'sieu lai ngay', feature: 'Tiền gửi', journey: 'Daily' },
+  { keyword: 'tiền gửi', feature: 'Tiền gửi', journey: 'Daily' },
+  { keyword: 'tien gui', feature: 'Tiền gửi', journey: 'Daily' },
+  { keyword: 'gửi tiền', feature: 'Tiền gửi', journey: 'Daily' },
+  { keyword: 'gui tien', feature: 'Tiền gửi', journey: 'Daily' },
+  { keyword: 'tiết kiệm', feature: 'Tiền gửi', journey: 'Daily' },
+  { keyword: 'tiet kiem', feature: 'Tiền gửi', journey: 'Daily' },
+  { keyword: 'hđtg', feature: 'Tiền gửi', journey: 'Daily' },
+  { keyword: 'hdtg', feature: 'Tiền gửi', journey: 'Daily' },
+
+  // 6. Quản lý quan hệ / RM / Nhân viên / Quầy
+  { keyword: 'nhân viên giao dịch tại chi nhánh', feature: 'Giao dịch tại quầy', journey: 'Trung tâm quỹ và dịch vụ KH' },
+  { keyword: 'nhan vien giao dich tai chi nhanh', feature: 'Giao dịch tại quầy', journey: 'Trung tâm quỹ và dịch vụ KH' },
+  { keyword: 'giao dịch tại quầy', feature: 'Giao dịch tại quầy', journey: 'Trung tâm quỹ và dịch vụ KH' },
+  { keyword: 'dịch vụ tại quầy', feature: 'Giao dịch tại quầy', journey: 'Trung tâm quỹ và dịch vụ KH' },
+  { keyword: 'dich vu tai quay', feature: 'Giao dịch tại quầy', journey: 'Trung tâm quỹ và dịch vụ KH' },
+  { keyword: 'giao dịch viên', feature: 'Giao dịch tại quầy', journey: 'Trung tâm quỹ và dịch vụ KH' },
+  { keyword: 'phòng giao dịch', feature: 'Giao dịch tại quầy', journey: 'Trung tâm quỹ và dịch vụ KH' },
+  { keyword: 'chi nhánh', feature: 'Giao dịch tại quầy', journey: 'Trung tâm quỹ và dịch vụ KH' },
+  { keyword: 'chi nhanh', feature: 'Giao dịch tại quầy', journey: 'Trung tâm quỹ và dịch vụ KH' },
+  { keyword: 'quầy', feature: 'Giao dịch tại quầy', journey: 'Trung tâm quỹ và dịch vụ KH' },
+  { keyword: 'pgd', feature: 'Giao dịch tại quầy', journey: 'Trung tâm quỹ và dịch vụ KH' },
+
+  { keyword: 'người hỗ trợ', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'nguoi ho tro', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'nhân viên hỗ trợ', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'nhan vien ho tro', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'nhân viên phụ trách', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'nhan vien phu trach', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'chuyên viên hỗ trợ', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'chuyen vien ho tro', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'chuyên viên tư vấn', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'chuyen vien tu van', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'chuyên viên', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'chuyen vien', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'nhân viên', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'nhan vien', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'cán bộ', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'can bo', feature: 'RM', journey: 'Khối kinh doanh' },
+  { keyword: 'rm', feature: 'RM', journey: 'Khối kinh doanh' },
+
+  // Thu phí
+  { keyword: 'thu phí xử lý hồ sơ', feature: 'Thu phí Xử lý hồ sơ (CA clound)', journey: 'Khối kinh doanh' },
+  { keyword: 'xử lý hồ sơ', feature: 'Thu phí Xử lý hồ sơ (CA clound)', journey: 'Khối kinh doanh' },
+  { keyword: 'xu ly ho so', feature: 'Thu phí Xử lý hồ sơ (CA clound)', journey: 'Khối kinh doanh' },
+  { keyword: 'ca clound', feature: 'Thu phí Xử lý hồ sơ (CA clound)', journey: 'Khối kinh doanh' },
+  { keyword: 'ca cloud', feature: 'Thu phí Xử lý hồ sơ (CA clound)', journey: 'Khối kinh doanh' },
+  { keyword: 'thu phí', feature: 'Thu phí Xử lý hồ sơ (CA clound)', journey: 'Khối kinh doanh' },
+  { keyword: 'thu phi', feature: 'Thu phí Xử lý hồ sơ (CA clound)', journey: 'Khối kinh doanh' },
+  { keyword: 'thu tiền', feature: 'Thu phí Xử lý hồ sơ (CA clound)', journey: 'Khối kinh doanh' },
+  { keyword: 'thu tien', feature: 'Thu phí Xử lý hồ sơ (CA clound)', journey: 'Khối kinh doanh' },
+  { keyword: 'trừ phí', feature: 'Thu phí Xử lý hồ sơ (CA clound)', journey: 'Khối kinh doanh' },
+  { keyword: 'tru phi', feature: 'Thu phí Xử lý hồ sơ (CA clound)', journey: 'Khối kinh doanh' },
+
+  // 7. TF / Ngoại tệ / Quốc tế
+  { keyword: 'chuyển tiền quốc tế', feature: 'Chuyển tiền quốc tế', journey: 'TF' },
+  { keyword: 'chuyen tien quoc te', feature: 'Chuyển tiền quốc tế', journey: 'TF' },
+  { keyword: 'tài trợ thương mại', feature: 'Chuyển tiền quốc tế', journey: 'TF' },
+  { keyword: 'tai tro thuong mai', feature: 'Chuyển tiền quốc tế', journey: 'TF' },
+  { keyword: 'thương mại', feature: 'Chuyển tiền quốc tế', journey: 'TF' },
+  { keyword: 'thuong mai', feature: 'Chuyển tiền quốc tế', journey: 'TF' },
+  { keyword: 'swift', feature: 'Chuyển tiền quốc tế', journey: 'TF' },
+  { keyword: 'bán ngoại tệ', feature: 'Bán ngoại tệ', journey: 'TF' },
+  { keyword: 'ban ngoai te', feature: 'Bán ngoại tệ', journey: 'TF' },
+  { keyword: 'mua ngoại tệ', feature: 'Bán ngoại tệ', journey: 'TF' },
+  { keyword: 'ngoại tệ', feature: 'Bán ngoại tệ', journey: 'TF' },
+  { keyword: 'ngoai te', feature: 'Bán ngoại tệ', journey: 'TF' },
+
+  // 8. MB247 / Hotline
+  { keyword: 'gửi yêu cầu hỗ trợ', feature: 'MB247', journey: 'Trung tâm MB247' },
+  { keyword: 'gui yeu cau ho tro', feature: 'MB247', journey: 'Trung tâm MB247' },
+  { keyword: 'chăm sóc khách hàng', feature: 'MB247', journey: 'Trung tâm MB247' },
+  { keyword: 'cham soc khach hang', feature: 'MB247', journey: 'Trung tâm MB247' },
+  { keyword: 'chăm sóc kh', feature: 'MB247', journey: 'Trung tâm MB247' },
+  { keyword: 'cham soc kh', feature: 'MB247', journey: 'Trung tâm MB247' },
+  { keyword: 'tổng đài', feature: 'MB247', journey: 'Trung tâm MB247' },
+  { keyword: 'tong dai', feature: 'MB247', journey: 'Trung tâm MB247' },
+  { keyword: 'mb247', feature: 'MB247', journey: 'Trung tâm MB247' },
+  { keyword: 'cskh', feature: 'MB247', journey: 'Trung tâm MB247' },
+  { keyword: 'hotline', feature: 'MB247', journey: 'Trung tâm MB247' },
+  { keyword: 'khiếu nại', feature: 'MB247', journey: 'Trung tâm MB247' },
+  { keyword: 'khieu nai', feature: 'MB247', journey: 'Trung tâm MB247' },
+  { keyword: 'tra soát', feature: 'MB247', journey: 'Trung tâm MB247' },
+  { keyword: 'tra soat', feature: 'MB247', journey: 'Trung tâm MB247' },
+
+  // 9. Sao kê / Sổ phụ
+  { keyword: 'lịch sử giao dịch', feature: 'Sao kê/Sổ phụ', journey: 'Daily' },
+  { keyword: 'lich su giao dich', feature: 'Sao kê/Sổ phụ', journey: 'Daily' },
+  { keyword: 'tải chứng từ', feature: 'Sao kê/Sổ phụ', journey: 'Daily' },
+  { keyword: 'tai chung tu', feature: 'Sao kê/Sổ phụ', journey: 'Daily' },
+  { keyword: 'tải unc', feature: 'Sao kê/Sổ phụ', journey: 'Daily' },
+  { keyword: 'tai unc', feature: 'Sao kê/Sổ phụ', journey: 'Daily' },
+  { keyword: 'xuất file', feature: 'Sao kê/Sổ phụ', journey: 'Daily' },
+  { keyword: 'xuat file', feature: 'Sao kê/Sổ phụ', journey: 'Daily' },
+  { keyword: 'sổ phụ', feature: 'Sao kê/Sổ phụ', journey: 'Daily' },
+  { keyword: 'so phu', feature: 'Sao kê/Sổ phụ', journey: 'Daily' },
+  { keyword: 'sao kê', feature: 'Sao kê/Sổ phụ', journey: 'Daily' },
+  { keyword: 'sao ke', feature: 'Sao kê/Sổ phụ', journey: 'Daily' },
+  { keyword: 'số dư', feature: 'Sao kê/Sổ phụ', journey: 'Daily' },
+  { keyword: 'so du', feature: 'Sao kê/Sổ phụ', journey: 'Daily' },
+  { keyword: 'unc', feature: 'Sao kê/Sổ phụ', journey: 'Daily' },
+
+  // 10. Lending / Vay / Giải ngân / Bảo lãnh
+  { keyword: 'bảo lãnh', feature: 'Bảo lãnh', journey: 'Lending' },
+  { keyword: 'bao lanh', feature: 'Bảo lãnh', journey: 'Lending' },
+  { keyword: 'khoản vay', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'khoan vay', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'giải ngân', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'giai ngan', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'gốc lãi', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'goc lai', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'vay vốn', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'vay von', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'vay tiền', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'vay tien', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'hạn mức', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'han muc', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'lãi vay', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'lai vay', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'trả nợ', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'tra no', feature: 'Giải ngân', journey: 'Lending' },
+  { keyword: 'vay', feature: 'Giải ngân', journey: 'Lending' },
+
+  // 11. Hệ thống / CNTT
+  { keyword: 'lỗi hệ thống', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'loi he thong', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'hệ thống', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'he thong', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'quay vòng', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'quay vong', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'xoay mãi', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'xoay mai', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'loading mãi', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'không vào được', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'khong vao duoc', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'không mở được', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'khong mo duoc', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'tự thoát', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'tu thoat', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'bị văng', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'bi vang', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'văng app', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'vang app', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'bảo trì', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'bao tri', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'cập nhật', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'cap nhat', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'update', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'khắc phục', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'khac phuc', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'sửa lỗi', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'sua loi', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'chậm', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'cham', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'lag', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'đơ', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'treo', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'văng', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'sập', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'lỗi', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'loi', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'crash', feature: 'Hệ thống', journey: 'CNTT' },
+  { keyword: 'bug', feature: 'Hệ thống', journey: 'CNTT' },
+
+  // 12. Onboarding / Sinh trắc / Đăng ký
+  { keyword: 'thu thập sinh trắc học', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'giấy phép kinh doanh', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'giay phep kinh doanh', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'gpkd', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'nhận diện', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'nhan dien', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'khuôn mặt', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'khuon mat', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'face id', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'faceid', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'căn cước', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'can cuoc', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'cccd', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'nfc', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'sinh trắc', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'sinh trac', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'đăng ký', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'dang ky', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'mở tài khoản', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'mo tai khoan', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'ekyc', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+  { keyword: 'e-kyc', feature: 'Thu thập sinh trắc học', journey: 'Onboarding' },
+
+  // 13. UI UX / Giao diện
+  { keyword: 'khó sử dụng', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'kho su dung', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'size chữ', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'size chu', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'chữ nhỏ', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'chu nho', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'khó tìm', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'kho tim', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'thao tác', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'thao tac', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'giao diện', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'giao dien', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'bất tiện', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'bat tien', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'khó dùng', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'kho dung', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'rối mắt', feature: 'Giao diện', journey: 'UI UX' },
+  { keyword: 'phức tạp', feature: 'Giao diện', journey: 'UI UX' },
+
+  // 14. Quản lý phê duyệt
+  { keyword: 'quản lý phê duyệt', feature: 'Quản lý phê duyệt', journey: 'Daily' },
+  { keyword: 'quan ly phe duyet', feature: 'Quản lý phê duyệt', journey: 'Daily' },
+  { keyword: 'phê duyệt', feature: 'Quản lý phê duyệt', journey: 'Daily' },
+  { keyword: 'phe duyet', feature: 'Quản lý phê duyệt', journey: 'Daily' },
+  { keyword: 'duyệt lệnh', feature: 'Quản lý phê duyệt', journey: 'Daily' },
+  { keyword: 'duyet lenh', feature: 'Quản lý phê duyệt', journey: 'Daily' },
+
+  // 15. Noti / Thông báo
+  { keyword: 'thông báo số dư', feature: 'Noti', journey: 'Daily' },
+  { keyword: 'thong bao so du', feature: 'Noti', journey: 'Daily' },
+  { keyword: 'thông báo', feature: 'Noti', journey: 'Daily' },
+  { keyword: 'thong bao', feature: 'Noti', journey: 'Daily' },
+  { keyword: 'noti', feature: 'Noti', journey: 'Daily' },
+  { keyword: 'notification', feature: 'Noti', journey: 'Daily' },
+  { keyword: 'tin nhắn biến động', feature: 'Noti', journey: 'Daily' },
+
+  // 16. DOTP / OTP
+  { keyword: 'smart otp', feature: 'DOTP', journey: 'Daily' },
+  { keyword: 'smartotp', feature: 'DOTP', journey: 'Daily' },
+  { keyword: 'dotp', feature: 'DOTP', journey: 'Daily' },
+  { keyword: 'd otp', feature: 'DOTP', journey: 'Daily' },
+  { keyword: 'otp', feature: 'DOTP', journey: 'Daily' },
+
+  // 17. Hóa đơn điện tử
+  { keyword: 'hóa đơn điện tử', feature: 'Hóa đơn điện tử', journey: 'Daily' },
+  { keyword: 'hoa don dien tu', feature: 'Hóa đơn điện tử', journey: 'Daily' },
+  { keyword: 'hóa đơn vat', feature: 'Hóa đơn điện tử', journey: 'Daily' },
+  { keyword: 'hóa đơn', feature: 'Hóa đơn điện tử', journey: 'Daily' },
+  { keyword: 'hoa don', feature: 'Hóa đơn điện tử', journey: 'Daily' },
+
+  // 18. Thẻ
+  { keyword: 'thẻ tín dụng', feature: 'Thẻ', journey: 'Team Thẻ' },
+  { keyword: 'the tin dung', feature: 'Thẻ', journey: 'Team Thẻ' },
+  { keyword: 'thẻ atm', feature: 'Thẻ', journey: 'Team Thẻ' },
+  { keyword: 'thẻ', feature: 'Thẻ', journey: 'Team Thẻ' },
+  { keyword: 'the', feature: 'Thẻ', journey: 'Team Thẻ' },
+
+  // 19. Ngôn ngữ
+  { keyword: 'thêm tiếng', feature: 'Quản lý ngôn ngữ', journey: 'Daily' },
+  { keyword: 'them tieng', feature: 'Quản lý ngôn ngữ', journey: 'Daily' },
+  { keyword: 'ngôn ngữ', feature: 'Quản lý ngôn ngữ', journey: 'Daily' },
+  { keyword: 'ngon ngu', feature: 'Quản lý ngôn ngữ', journey: 'Daily' },
+
+  // 20. Rating / Quảng cáo
+  { keyword: 'quảng cáo', feature: 'Rating', journey: 'Daily' },
+  { keyword: 'quang cao', feature: 'Rating', journey: 'Daily' },
+  { keyword: 'đánh giá', feature: 'Rating', journey: 'Daily' },
+  { keyword: 'danh gia', feature: 'Rating', journey: 'Daily' },
+
+  // 21. Homepage
+  { keyword: 'màn hình chính', feature: 'homepage', journey: 'Daily' },
+  { keyword: 'man hinh chinh', feature: 'homepage', journey: 'Daily' },
+  { keyword: 'trang chủ', feature: 'homepage', journey: 'Daily' },
+  { keyword: 'trang chu', feature: 'homepage', journey: 'Daily' },
+  { keyword: 'homepage', feature: 'homepage', journey: 'Daily' },
+
+  // 22. Trải nghiệm dịch vụ / Đánh giá chung (Fallback nhận xét)
+  { keyword: 'dịch vụ', feature: 'Trải nghiệm dịch vụ', journey: 'Daily' },
+  { keyword: 'dich vu', feature: 'Trải nghiệm dịch vụ', journey: 'Daily' },
+  { keyword: 'phục vụ', feature: 'Trải nghiệm dịch vụ', journey: 'Daily' },
+  { keyword: 'phuc vu', feature: 'Trải nghiệm dịch vụ', journey: 'Daily' },
+  { keyword: 'tồi tệ', feature: 'Trải nghiệm chung', journey: 'Daily' },
+  { keyword: 'toi te', feature: 'Trải nghiệm chung', journey: 'Daily' },
+  { keyword: 'thất vọng', feature: 'Trải nghiệm chung', journey: 'Daily' },
+  { keyword: 'that vong', feature: 'Trải nghiệm chung', journey: 'Daily' },
+  { keyword: 'tuyệt vời', feature: 'Trải nghiệm chung', journey: 'Daily' },
+  { keyword: 'tuyet voi', feature: 'Trải nghiệm chung', journey: 'Daily' },
+  { keyword: 'hài lòng', feature: 'Trải nghiệm chung', journey: 'Daily' },
+  { keyword: 'hai long', feature: 'Trải nghiệm chung', journey: 'Daily' }
+];
+
+function matchWordBoundary(textLower, word) {
+  if (!textLower || !word) return false;
+  if (word.includes(' ')) {
+    return textLower.includes(word);
+  }
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(^|[^a-z0-9à-ỹ])${escaped}([^a-z0-9à-ỹ]|$)`, 'i');
+  return regex.test(textLower);
+}
+
 async function parseDictionaryFile(buffer, fileName) {
-  const dictItems = [];
-  const positiveKeywords = new Set(['tốt', 'tuyệt vời', 'tuyệt', 'ok', 'oke', 'ngon', 'uy tín', 'nhanh', 'tiện', 'hài lòng', 'mượt', 'chuẩn', 'xịn', 'yêu', 'thích', 'xuất sắc']);
+  const dictItems = [...DEFAULT_DICTIONARY_ITEMS];
+  const positiveKeywords = new Set(['tốt', 'tuyệt vời', 'tuyệt', 'ok', 'oke', 'ngon', 'uy tín', 'nhanh', 'tiện', 'tiện dụng', 'hài lòng', 'mượt', 'chuẩn', 'xịn', 'yêu', 'thích', 'xuất sắc']);
   const negativeKeywords = new Set(['lag', 'lỗi', 'đơ', 'rác', 'tệ', 'chậm', 'treo', 'phàn nàn', 'chán', 'kém', 'bực', 'ức chế', 'tệ hại', 'tồi', 'kém chất lượng', 'kém cỏi', 'quá kém', 'không đăng nhập được', 'không nạp được', 'mất tiền', 'bị văng', 'sập', 'không vào được', 'lừa đảo', 'phiền']);
 
   if (!buffer) return { positiveKeywords, negativeKeywords, dictItems };
@@ -1339,68 +1734,45 @@ async function parseDictionaryFile(buffer, fileName) {
         const parts = trimmed.split(/[,;\t]/);
         const kw = parts[0] ? parts[0].trim().toLowerCase() : '';
         const col2 = parts[1] ? parts[1].trim() : '';
+        const col3 = parts[2] ? parts[2].trim() : '';
 
-        if (!kw || (idx === 0 && (kw.includes('từ khóa') || kw.includes('nội dung')))) return;
+        if (!kw || (idx === 0 && (kw.includes('từ khóa') || kw.includes('nội dung') || kw.includes('keyword')))) return;
 
-        let journey = 'Daily';
-        let sentiment = 'Tiêu cực';
+        let feature = col2 || 'Trải nghiệm chung';
+        let journey = col3 || 'Daily';
 
-        if (col2.includes('tiêu cực') || col2.includes('negative')) {
-          sentiment = 'Tiêu cực';
-        } else if (col2.includes('tích cực') || col2.includes('positive')) {
-          sentiment = 'Tích cực';
-        } else if (col2) {
-          journey = col2;
-          sentiment = (kw.includes('nhiệt tình') || kw.includes('tốt') || kw.includes('hài lòng')) ? 'Tích cực' : 'Tiêu cực';
-        }
-
-        if (sentiment === 'Tiêu cực') negativeKeywords.add(kw);
-        else positiveKeywords.add(kw);
-
-        dictItems.push({ keyword: kw, sentiment, journey: journey || 'Daily' });
+        dictItems.unshift({ keyword: kw, feature, journey });
       });
     } else {
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(buffer);
       workbook.worksheets.forEach(sheet => {
-        let colMap = { keyword: 1, col2: 2, col3: 3 };
+        let colMap = { keyword: 1, feature: 2, journey: 3 };
 
         sheet.eachRow((row, rowNumber) => {
           if (rowNumber <= 3) {
             row.eachCell((cell, colNum) => {
               const text = extractCellText(cell).toLowerCase();
-              if (text.includes('từ') || text.includes('nội dung') || text.includes('keyword')) colMap.keyword = colNum;
-              if (text.includes('hành trình') || text.includes('journey') || text.includes('chủ đề') || text.includes('giai đoạn') || text.includes('phân loại')) colMap.col2 = colNum;
+              if (text.includes('từ') || text.includes('nội dung') || text.includes('keyword') || text.includes('key word')) colMap.keyword = colNum;
+              if (text.includes('tính năng') || text.includes('feature') || text.includes('chức năng')) colMap.feature = colNum;
+              if (text.includes('đơn vị') || text.includes('tiếp nhận') || text.includes('hành trình') || text.includes('journey') || text.includes('xử lý')) colMap.journey = colNum;
             });
           }
 
           const kwText = extractCellText(row.getCell(colMap.keyword)).trim();
-          if (rowNumber <= 3 && (kwText.toLowerCase().includes('nội dung') || kwText.toLowerCase().includes('từ khóa') || kwText.toLowerCase().includes('keyword'))) return;
+          if (rowNumber <= 3 && (kwText.toLowerCase().includes('nội dung') || kwText.toLowerCase().includes('từ khóa') || kwText.toLowerCase().includes('keyword') || kwText.toLowerCase().includes('key word'))) return;
 
           const kw = kwText.toLowerCase();
-          const val2 = extractCellText(row.getCell(colMap.col2)).trim();
-          const val3 = extractCellText(row.getCell(colMap.col3)).trim();
+          const featureVal = extractCellText(row.getCell(colMap.feature)).trim();
+          const journeyVal = extractCellText(row.getCell(colMap.journey)).trim();
 
           if (!kw) return;
 
-          let journey = 'Daily';
-          let sentiment = 'Tiêu cực';
-
-          if (val2.includes('tiêu cực') || val3.includes('tiêu cực')) {
-            sentiment = 'Tiêu cực';
-            if (val2 && !val2.includes('tiêu cực')) journey = val2;
-          } else if (val2.includes('tích cực') || val3.includes('tích cực')) {
-            sentiment = 'Tích cực';
-            if (val2 && !val2.includes('tích cực')) journey = val2;
-          } else if (val2) {
-            journey = val2;
-            sentiment = (kw.includes('nhiệt tình') || kw.includes('tốt') || kw.includes('chu đáo') || kw.includes('hài lòng')) ? 'Tích cực' : 'Tiêu cực';
-          }
-
-          if (sentiment === 'Tiêu cực') negativeKeywords.add(kw);
-          else positiveKeywords.add(kw);
-
-          dictItems.push({ keyword: kw, sentiment, journey: journey || 'Daily' });
+          dictItems.unshift({
+            keyword: kw,
+            feature: featureVal || 'Trải nghiệm chung',
+            journey: journeyVal || 'Daily'
+          });
         });
       });
     }
@@ -1412,78 +1784,108 @@ async function parseDictionaryFile(buffer, fileName) {
 }
 
 function classifySentimentWithDict(comment, rating, dict = {}) {
-  const textLower = (comment || '').toLowerCase();
-  const matchedPos = [];
-  const matchedNeg = [];
-  let journey = 'Daily';
+  const textLower = (comment || '').toLowerCase().trim();
+  const items = (dict && Array.isArray(dict.dictItems) && dict.dictItems.length > 0)
+    ? dict.dictItems
+    : DEFAULT_DICTIONARY_ITEMS;
 
-  // 1. Identify Journey (Lending, RM, 247, Daily)
-  const isLending = textLower.includes('vay') || textLower.includes('lending') || textLower.includes('giải ngân') || textLower.includes('giai ngan') || textLower.includes('khoản vay') || textLower.includes('hạn mức') || textLower.includes('bảo lãnh') || textLower.includes('bao lanh') || textLower.includes('dư nợ') || textLower.includes('tín dụng') || textLower.includes('khế ước') || textLower.includes('lãi suất') || textLower.includes('lãi vay') || textLower.includes('trả nợ');
-  const isRM = textLower.includes('rm') || textLower.includes('relationship manager') || textLower.includes('quản lý quan hệ') || textLower.includes('qhkh') || textLower.includes('cán bộ') || textLower.includes('nhân viên') || textLower.includes('chi nhánh') || textLower.includes('phòng giao dịch') || textLower.includes('pgd') || textLower.includes('quầy giao dịch') || textLower.includes('chuyên viên');
-  const is247 = textLower.includes('247') || textLower.includes('mb247') || textLower.includes('tổng đài') || textLower.includes('hotline') || textLower.includes('1900 9045') || textLower.includes('biz helper') || textLower.includes('bizhelper') || textLower.includes('call center') || textLower.includes('cskh') || textLower.includes('khiếu nại') || textLower.includes('khieu nai') || textLower.includes('tra soát') || textLower.includes('ticket');
+  const sortedDict = [...items].sort((a, b) => b.keyword.length - a.keyword.length);
 
-  if (isLending) journey = 'Lending';
-  else if (isRM) journey = 'RM';
-  else if (is247) journey = '247';
-  else journey = 'Daily';
+  const matchedKeywordsList = [];
+  let foundFeature = '';
+  let foundJourney = '';
 
-  // 2. Keyword Matching from dict if present
-  if (dict && Array.isArray(dict.dictItems) && dict.dictItems.length > 0) {
-    dict.dictItems.forEach(item => {
-      if (item.keyword && textLower.includes(item.keyword)) {
-        if (item.sentiment === 'Tiêu cực') matchedNeg.push(item.keyword);
-        else matchedPos.push(item.keyword);
-        if (item.journey && item.journey !== 'Daily') journey = item.journey;
+  for (const item of sortedDict) {
+    if (matchWordBoundary(textLower, item.keyword)) {
+      if (!matchedKeywordsList.includes(item.keyword)) {
+        matchedKeywordsList.push(item.keyword);
       }
-    });
+      if (!foundFeature && item.feature) foundFeature = item.feature;
+      if (!foundJourney && item.journey) foundJourney = item.journey;
+    }
   }
 
-  // 3. Problem & Negative Term Indicators (Captures negative reviews at 5-star ratings!)
-  const NEGATIVE_INDICATORS = [
+  // Fallback intelligent classification if not directly matched by keyword
+  if (!foundFeature || foundFeature === 'Chưa phân loại') {
+    if (matchWordBoundary(textLower, 'lỗi') || matchWordBoundary(textLower, 'loi') || matchWordBoundary(textLower, 'chậm') || matchWordBoundary(textLower, 'lag') || matchWordBoundary(textLower, 'đơ') || matchWordBoundary(textLower, 'treo') || textLower.includes('văng') || textLower.includes('không vào') || textLower.includes('bảo trì') || textLower.includes('cập nhật') || textLower.includes('sửa lỗi') || textLower.includes('khắc phục')) {
+      foundJourney = 'CNTT';
+      foundFeature = 'Hệ thống';
+    } else if (textLower.includes('đăng ký') || textLower.includes('nhận diện') || textLower.includes('giấy phép') || textLower.includes('sinh trắc') || textLower.includes('khuôn mặt') || textLower.includes('căn cước') || textLower.includes('cccd')) {
+      foundJourney = 'Onboarding';
+      foundFeature = 'Thu thập sinh trắc học';
+    } else if (textLower.includes('giao diện') || textLower.includes('chữ') || textLower.includes('khó dùng') || textLower.includes('thao tác') || textLower.includes('bất tiện') || textLower.includes('rối mắt')) {
+      foundJourney = 'UI UX';
+      foundFeature = 'Giao diện';
+    } else if (textLower.includes('vay') || textLower.includes('giải ngân') || textLower.includes('bảo lãnh') || textLower.includes('hạn mức')) {
+      foundJourney = 'Lending';
+      foundFeature = 'Giải ngân';
+    } else if (textLower.includes('nhân viên') || textLower.includes('cán bộ') || textLower.includes('chuyên viên') || textLower.includes('hỗ trợ') || textLower.includes('tư vấn')) {
+      foundJourney = 'Khối kinh doanh';
+      foundFeature = 'RM';
+    } else if (textLower.includes('tổng đài') || textLower.includes('hotline') || textLower.includes('cskh') || textLower.includes('khiếu nại') || textLower.includes('tra soát')) {
+      foundJourney = 'Trung tâm MB247';
+      foundFeature = 'MB247';
+    } else if (textLower.includes('dịch vụ') || textLower.includes('phục vụ') || textLower.includes('thất vọng') || textLower.includes('tồi tệ') || textLower.includes('tệ')) {
+      foundJourney = 'Daily';
+      foundFeature = 'Trải nghiệm dịch vụ';
+    } else {
+      foundJourney = 'Daily';
+      foundFeature = 'Trải nghiệm chung';
+    }
+  }
+
+  if (!foundJourney) foundJourney = 'Daily';
+
+  // Sentiment Analysis Indicators
+  const NEGATIVE_WORDS = [
     'lỗi', 'lag', 'đơ', 'rác', 'tệ', 'chậm', 'treo', 'văng', 'sập', 'kém', 'chán', 'ức chế', 'bực',
-    'khó', 'không', 'ko', 'k ', 'sai', 'hỏng', 'bị', 'hết hạn', 'quên', 'phát sinh', 'chưa', 'chờ',
+    'khó', 'không', 'ko', 'sai', 'hỏng', 'bị', 'hết hạn', 'quên', 'phát sinh', 'chưa', 'chờ',
     'giữ hồ sơ', 'từ chối', 'tự thoát', 'bắt', 'khóa', 'phiền', 'tồi', 'vượt hạn mức', 'mất tiền',
     'không vào', 'không nạp', 'không mở', 'không dùng', 'phản hồi chậm', 'không nghe', 'máy bận',
-    'quá lâu', 'khiếu nại', 'tra soát', 'bảo trì', 'xoay mãi', 'loading mãi', 'không tải', 'tự xóa'
+    'quá lâu', 'khiếu nại', 'tra soát', 'bảo trì', 'xoay mãi', 'loading mãi', 'không tải', 'tự xóa',
+    'bất tiện', 'đòi cập nhật', 'đừng bắt'
   ];
 
-  const POSITIVE_INDICATORS = [
-    'tốt', 'tuyệt vời', 'tuyệt', 'mượt', 'nhanh', 'ngon', 'xịn', 'tiện', 'chu đáo', 'nhiệt tình',
-    'hài lòng', 'good', 'great', 'ok', 'oke', 'ưng ý', 'xuất sắc', 'uy tín', 'dễ dùng', 'gọn'
+  const matchedNeg = [];
+  NEGATIVE_WORDS.forEach(kw => {
+    if (matchWordBoundary(textLower, kw)) matchedNeg.push(kw);
+  });
+
+  const POSITIVE_WORDS = [
+    'tốt', 'tuyệt vời', 'tuyệt', 'mượt', 'nhanh', 'ngon', 'xịn', 'tiện', 'tiện dụng', 'chu đáo', 'nhiệt tình',
+    'hài lòng', 'good', 'great', 'ok', 'oke', 'ưng ý', 'xuất sắc', 'uy tín', 'dễ dùng', 'gọn', 'đơn giản', 'an toàn'
   ];
 
-  NEGATIVE_INDICATORS.forEach(kw => {
-    if (textLower.includes(kw) && !matchedNeg.includes(kw)) matchedNeg.push(kw);
+  const matchedPos = [];
+  POSITIVE_WORDS.forEach(kw => {
+    if (matchWordBoundary(textLower, kw)) matchedPos.push(kw);
   });
 
-  POSITIVE_INDICATORS.forEach(kw => {
-    if (textLower.includes(kw) && !matchedPos.includes(kw)) matchedPos.push(kw);
-  });
-
-  // 4. Sentiment Classification Rules:
-  // Rule A: Rating 1★ or 2★ -> AUTO TIÊU CỰC
-  // Rule B: Any Negative problem keyword present -> TIÊU CỰC (handles 5★ reviews with negative text!)
   let finalSentiment = 'Tích cực';
   let badgeClass = 'badge-ai-positive';
-  let matchedKeywords = '';
-
   const isNegAuto = rating <= 2;
   const hasNegKeyword = matchedNeg.length > 0;
 
-  if (isNegAuto || hasNegKeyword) {
+  if (isNegAuto || (hasNegKeyword && (rating <= 3 || !matchedPos.length || matchedNeg.length >= 2 || textLower.includes('đừng bắt') || textLower.includes('lỗi')))) {
     finalSentiment = 'Tiêu cực';
     badgeClass = 'badge-ai-negative';
-    matchedKeywords = matchedNeg.length > 0 ? Array.from(new Set(matchedNeg)).slice(0, 4).join(', ') : `Đánh giá ${rating} sao`;
-  } else {
+  } else if (rating >= 4 || matchedPos.length > 0) {
     finalSentiment = 'Tích cực';
     badgeClass = 'badge-ai-positive';
-    matchedKeywords = matchedPos.length > 0 ? Array.from(new Set(matchedPos)).slice(0, 4).join(', ') : `Đánh giá ${rating} sao`;
+  } else {
+    finalSentiment = 'Tiêu cực';
+    badgeClass = 'badge-ai-negative';
   }
+
+  const matchedKeywords = matchedKeywordsList.length > 0
+    ? matchedKeywordsList.slice(0, 4).join(', ')
+    : (matchedNeg.length > 0 ? matchedNeg.slice(0, 3).join(', ') : `Đánh giá ${rating} sao`);
 
   return {
     sentiment: finalSentiment,
     matchedKeywords,
-    journey,
+    journey: foundJourney,
+    feature: foundFeature,
     badgeClass
   };
 }
@@ -1500,7 +1902,8 @@ async function generateAIAnalysisExcel(results, fileName) {
     { header: 'Bình luận', key: 'comment', width: 55 },
     { header: 'Ngày', key: 'date', width: 14 },
     { header: 'Phân loại AI', key: 'sentiment', width: 16 },
-    { header: 'Hành trình', key: 'journey', width: 24 },
+    { header: 'Hành trình / Đơn vị tiếp nhận & xử lý', key: 'journey', width: 28 },
+    { header: 'Tính năng', key: 'feature', width: 26 },
     { header: 'Từ khóa trùng khớp', key: 'matchedKeywords', width: 30 }
   ];
 
@@ -1519,6 +1922,7 @@ async function generateAIAnalysisExcel(results, fileName) {
       date: r.date,
       sentiment: r.sentiment,
       journey: r.journey || 'Daily',
+      feature: r.feature || 'Chưa phân loại',
       matchedKeywords: r.matchedKeywords
     });
 
@@ -1568,7 +1972,7 @@ app.post(['/api/ai/analyze', '/ai/analyze'], upload.fields([{ name: 'ratingFiles
     let countNeu = 0;
 
     const classifiedResults = allReviews.map((r, idx) => {
-      const { sentiment, matchedKeywords, journey, badgeClass } = classifySentimentWithDict(r.comment, r.rating, dict);
+      const { sentiment, matchedKeywords, journey, feature, badgeClass } = classifySentimentWithDict(r.comment, r.rating, dict);
       if (sentiment === 'Tích cực') countPos++;
       else if (sentiment === 'Tiêu cực') countNeg++;
       else countNeu++;
@@ -1579,6 +1983,7 @@ app.post(['/api/ai/analyze', '/ai/analyze'], upload.fields([{ name: 'ratingFiles
         sentiment,
         matchedKeywords,
         journey,
+        feature,
         badgeClass
       };
     });

@@ -4483,6 +4483,393 @@ function initLayoutCatalogModal() {
   });
 }
 
+function getLayoutThumbnailSvg(layoutId) {
+  const headerSvg = `<rect x="20" y="14" width="130" height="10" rx="3" fill="#FFFFFF"/><rect x="20" y="27" width="80" height="5" rx="2" fill="#E9ECFF" opacity="0.6"/><rect x="0" y="0" width="320" height="4" fill="#F50912"/>`;
+  let inner = '';
+
+  switch (layoutId) {
+    case 'cover_gradient':
+      return `<svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="320" height="180" fill="#171EDB"/>
+        <rect x="24" y="24" width="70" height="7" rx="3" fill="#F50912"/>
+        <rect x="24" y="44" width="220" height="16" rx="4" fill="#FFFFFF"/>
+        <rect x="24" y="66" width="160" height="16" rx="4" fill="#FFFFFF"/>
+        <rect x="24" y="94" width="180" height="9" rx="3" fill="#E9ECFF" opacity="0.8"/>
+        <rect x="24" y="112" width="220" height="22" rx="4" fill="#FFFFFF" opacity="0.12"/>
+        <rect x="24" y="148" width="272" height="1" fill="#FFFFFF" opacity="0.25"/>
+        <circle cx="32" cy="160" r="5" fill="#F50912"/>
+        <rect x="44" y="157" width="80" height="6" rx="2" fill="#FFFFFF" opacity="0.8"/>
+      </svg>`;
+
+    case 'cover_light':
+      return `<svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="320" height="180" fill="#F8FAFC"/>
+        <rect x="0" y="0" width="320" height="6" fill="#171EDB"/>
+        <rect x="24" y="24" width="60" height="12" rx="3" fill="#F50912" opacity="0.2"/>
+        <rect x="28" y="27" width="52" height="6" rx="2" fill="#F50912"/>
+        <rect x="24" y="48" width="230" height="16" rx="4" fill="#081235"/>
+        <rect x="24" y="70" width="170" height="16" rx="4" fill="#081235"/>
+        <rect x="24" y="96" width="180" height="9" rx="3" fill="#171EDB"/>
+        <rect x="24" y="148" width="272" height="1" fill="#081235" opacity="0.15"/>
+        <circle cx="32" cy="160" r="5" fill="#171EDB"/>
+        <rect x="44" y="157" width="90" height="6" rx="2" fill="#081235" opacity="0.7"/>
+      </svg>`;
+
+    case 'agenda':
+      inner = `
+        <rect x="20" y="38" width="134" height="58" rx="6" fill="#171EDB" opacity="0.25"/><rect x="28" y="46" width="18" height="18" rx="4" fill="#171EDB"/><text x="37" y="59" font-size="10" font-weight="bold" fill="#FFF" text-anchor="middle">1</text><rect x="52" y="48" width="80" height="6" rx="2" fill="#FFF"/><rect x="52" y="60" width="65" height="5" rx="2" fill="#E9ECFF" opacity="0.6"/>
+        <rect x="166" y="38" width="134" height="58" rx="6" fill="#171EDB" opacity="0.25"/><rect x="174" y="46" width="18" height="18" rx="4" fill="#171EDB"/><text x="183" y="59" font-size="10" font-weight="bold" fill="#FFF" text-anchor="middle">2</text><rect x="198" y="48" width="80" height="6" rx="2" fill="#FFF"/><rect x="198" y="60" width="65" height="5" rx="2" fill="#E9ECFF" opacity="0.6"/>
+        <rect x="20" y="104" width="134" height="58" rx="6" fill="#171EDB" opacity="0.25"/><rect x="28" y="112" width="18" height="18" rx="4" fill="#171EDB"/><text x="37" y="125" font-size="10" font-weight="bold" fill="#FFF" text-anchor="middle">3</text><rect x="52" y="114" width="80" height="6" rx="2" fill="#FFF"/><rect x="52" y="126" width="65" height="5" rx="2" fill="#E9ECFF" opacity="0.6"/>
+        <rect x="166" y="104" width="134" height="58" rx="6" fill="#171EDB" opacity="0.25"/><rect x="174" y="112" width="18" height="18" rx="4" fill="#F50912"/><text x="183" y="125" font-size="10" font-weight="bold" fill="#FFF" text-anchor="middle">4</text><rect x="198" y="114" width="80" height="6" rx="2" fill="#FFF"/><rect x="198" y="126" width="65" height="5" rx="2" fill="#E9ECFF" opacity="0.6"/>
+      `;
+      break;
+
+    case 'section_divider':
+      return `<svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="320" height="180" fill="#081235"/>
+        <text x="36" y="105" font-size="58" font-weight="900" fill="#171EDB" opacity="0.9">02</text>
+        <rect x="115" y="55" width="4" height="50" fill="#F50912"/>
+        <rect x="130" y="64" width="160" height="15" rx="3" fill="#FFFFFF"/>
+        <rect x="130" y="88" width="110" height="9" rx="2" fill="#E9ECFF" opacity="0.7"/>
+      </svg>`;
+
+    case 'closing':
+      return `<svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="320" height="180" fill="#171EDB"/>
+        <rect x="60" y="45" width="200" height="22" rx="4" fill="#FFFFFF"/>
+        <rect x="90" y="78" width="140" height="10" rx="3" fill="#E9ECFF" opacity="0.8"/>
+        <rect x="45" y="115" width="105" height="26" rx="13" fill="#081235" opacity="0.5"/>
+        <rect x="170" y="115" width="105" height="26" rx="13" fill="#081235" opacity="0.5"/>
+      </svg>`;
+
+    case 'executive_summary':
+      inner = `
+        <rect x="20" y="34" width="280" height="24" rx="4" fill="#171EDB" opacity="0.25"/><rect x="20" y="34" width="4" height="24" rx="2" fill="#171EDB"/>
+        <rect x="20" y="66" width="86" height="98" rx="5" fill="#171EDB" opacity="0.15"/><rect x="26" y="72" width="18" height="14" rx="2" fill="#171EDB"/><rect x="26" y="94" width="65" height="5" rx="2" fill="#FFF"/><rect x="26" y="104" width="55" height="4" rx="2" fill="#FFF" opacity="0.6"/>
+        <rect x="116" y="66" width="86" height="98" rx="5" fill="#171EDB" opacity="0.15"/><rect x="122" y="72" width="18" height="14" rx="2" fill="#171EDB"/><rect x="122" y="94" width="65" height="5" rx="2" fill="#FFF"/><rect x="122" y="104" width="55" height="4" rx="2" fill="#FFF" opacity="0.6"/>
+        <rect x="214" y="66" width="86" height="98" rx="5" fill="#F50912" opacity="0.15"/><rect x="220" y="72" width="18" height="14" rx="2" fill="#F50912"/><rect x="220" y="94" width="65" height="5" rx="2" fill="#FFF"/><rect x="220" y="104" width="55" height="4" rx="2" fill="#FFF" opacity="0.6"/>
+      `;
+      break;
+
+    case 'key_message':
+      inner = `
+        <rect x="20" y="38" width="160" height="124" rx="6" fill="#171EDB" opacity="0.2"/><text x="32" y="68" font-size="28" fill="#171EDB" font-family="serif">“</text><rect x="32" y="76" width="135" height="8" rx="2" fill="#FFF"/><rect x="32" y="90" width="115" height="8" rx="2" fill="#FFF"/><rect x="32" y="104" width="125" height="8" rx="2" fill="#FFF"/>
+        <rect x="190" y="38" width="110" height="124" rx="6" fill="#081235" stroke="#171EDB" stroke-width="1.5"/><rect x="205" y="55" width="80" height="24" rx="4" fill="#10B981"/><rect x="205" y="90" width="65" height="8" rx="2" fill="#FFF"/><rect x="205" y="106" width="75" height="6" rx="2" fill="#E9ECFF" opacity="0.6"/>
+      `;
+      break;
+
+    case 'kpi_overview':
+      inner = `
+        <rect x="20" y="36" width="65" height="42" rx="4" fill="#171EDB" opacity="0.25"/><rect x="92" y="36" width="65" height="42" rx="4" fill="#171EDB" opacity="0.25"/><rect x="164" y="36" width="65" height="42" rx="4" fill="#171EDB" opacity="0.25"/><rect x="235" y="36" width="65" height="42" rx="4" fill="#F50912" opacity="0.25"/>
+        <rect x="20" y="86" width="160" height="78" rx="4" fill="#081235" opacity="0.4"/>
+        <rect x="190" y="86" width="110" height="22" rx="4" fill="#171EDB" opacity="0.2"/><rect x="190" y="114" width="110" height="22" rx="4" fill="#171EDB" opacity="0.2"/><rect x="190" y="142" width="110" height="22" rx="4" fill="#10B981" opacity="0.2"/>
+      `;
+      break;
+
+    case 'financial_dashboard':
+      inner = `
+        <rect x="20" y="34" width="65" height="32" rx="3" fill="#171EDB" opacity="0.2"/><rect x="92" y="34" width="65" height="32" rx="3" fill="#171EDB" opacity="0.2"/><rect x="164" y="34" width="65" height="32" rx="3" fill="#171EDB" opacity="0.2"/><rect x="235" y="34" width="65" height="32" rx="3" fill="#10B981" opacity="0.2"/>
+        <rect x="20" y="74" width="280" height="90" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/><polyline points="35,145 90,130 145,135 200,105 255,112 285,90" fill="none" stroke="#10B981" stroke-width="2.5"/><circle cx="285" cy="90" r="4" fill="#10B981"/>
+      `;
+      break;
+
+    case 'pnl_bridge':
+      inner = `
+        <rect x="20" y="34" width="280" height="130" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+        <rect x="35" y="70" width="24" height="75" rx="2" fill="#171EDB"/>
+        <rect x="75" y="55" width="24" height="35" rx="2" fill="#10B981"/>
+        <rect x="115" y="65" width="24" height="40" rx="2" fill="#EF4444"/>
+        <rect x="155" y="80" width="24" height="30" rx="2" fill="#EF4444"/>
+        <rect x="195" y="90" width="24" height="20" rx="2" fill="#EF4444"/>
+        <rect x="245" y="85" width="35" height="60" rx="2" fill="#10B981"/>
+      `;
+      break;
+
+    case 'balance_sheet':
+      inner = `
+        <rect x="20" y="36" width="134" height="126" rx="4" fill="#10B981" opacity="0.12" stroke="#10B981" stroke-width="1"/><rect x="20" y="36" width="134" height="20" rx="4" fill="#10B981"/>
+        <rect x="166" y="36" width="134" height="126" rx="4" fill="#171EDB" opacity="0.12" stroke="#171EDB" stroke-width="1"/><rect x="166" y="36" width="134" height="20" rx="4" fill="#171EDB"/>
+      `;
+      break;
+
+    case 'cash_flow':
+      inner = `
+        <rect x="20" y="36" width="86" height="88" rx="4" fill="#10B981" opacity="0.15" stroke="#10B981" stroke-width="1"/><rect x="116" y="36" width="86" height="88" rx="4" fill="#EF4444" opacity="0.15" stroke="#EF4444" stroke-width="1"/><rect x="214" y="36" width="86" height="88" rx="4" fill="#171EDB" opacity="0.15" stroke="#171EDB" stroke-width="1"/>
+        <rect x="20" y="132" width="280" height="30" rx="4" fill="#081235" stroke="#10B981" stroke-width="1"/>
+      `;
+      break;
+
+    case 'trend':
+      inner = `
+        <rect x="20" y="36" width="280" height="126" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+        <polyline points="35,120 100,100 170,110 230,70 285,60" fill="none" stroke="#171EDB" stroke-width="2.5"/>
+        <polyline points="35,130 100,120 170,95 230,90 285,75" fill="none" stroke="#00F5FF" stroke-width="2"/>
+        <circle cx="100" cy="148" r="4" fill="#F50912"/><circle cx="230" cy="148" r="4" fill="#F50912"/>
+      `;
+      break;
+
+    case 'plan_actual':
+      inner = `
+        <rect x="20" y="36" width="280" height="126" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+        <rect x="45" y="90" width="16" height="55" fill="#171EDB"/><rect x="63" y="70" width="16" height="75" fill="#00F5FF"/>
+        <rect x="105" y="80" width="16" height="65" fill="#171EDB"/><rect x="123" y="65" width="16" height="80" fill="#00F5FF"/>
+        <rect x="165" y="75" width="16" height="70" fill="#171EDB"/><rect x="183" y="55" width="16" height="90" fill="#00F5FF"/>
+        <rect x="225" y="70" width="16" height="75" fill="#171EDB"/><rect x="243" y="50" width="16" height="95" fill="#10B981"/>
+      `;
+      break;
+
+    case 'composition':
+      inner = `
+        <circle cx="85" cy="100" r="42" fill="none" stroke="#171EDB" stroke-width="18" stroke-dasharray="140 264"/>
+        <circle cx="85" cy="100" r="42" fill="none" stroke="#F50912" stroke-width="18" stroke-dasharray="60 264" stroke-dashoffset="-140"/>
+        <circle cx="85" cy="100" r="42" fill="none" stroke="#00F5FF" stroke-width="18" stroke-dasharray="40 264" stroke-dashoffset="-200"/>
+        <circle cx="85" cy="100" r="42" fill="none" stroke="#10B981" stroke-width="18" stroke-dasharray="24 264" stroke-dashoffset="-240"/>
+        <rect x="160" y="55" width="130" height="16" rx="3" fill="#171EDB" opacity="0.2"/>
+        <rect x="160" y="80" width="130" height="16" rx="3" fill="#F50912" opacity="0.2"/>
+        <rect x="160" y="105" width="130" height="16" rx="3" fill="#00F5FF" opacity="0.2"/>
+        <rect x="160" y="130" width="130" height="16" rx="3" fill="#10B981" opacity="0.2"/>
+      `;
+      break;
+
+    case 'data_table':
+      inner = `
+        <rect x="20" y="36" width="280" height="126" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+        <rect x="20" y="36" width="280" height="22" rx="4" fill="#171EDB"/>
+        <line x1="20" y1="78" x2="300" y2="78" stroke="#171EDB" stroke-width="0.8" opacity="0.4"/>
+        <line x1="20" y1="104" x2="300" y2="104" stroke="#171EDB" stroke-width="0.8" opacity="0.4"/>
+        <line x1="20" y1="130" x2="300" y2="130" stroke="#171EDB" stroke-width="0.8" opacity="0.4"/>
+        <line x1="90" y1="36" x2="90" y2="162" stroke="#171EDB" stroke-width="0.8" opacity="0.4"/>
+        <line x1="160" y1="36" x2="160" y2="162" stroke="#171EDB" stroke-width="0.8" opacity="0.4"/>
+        <line x1="230" y1="36" x2="230" y2="162" stroke="#171EDB" stroke-width="0.8" opacity="0.4"/>
+      `;
+      break;
+
+    case 'data_insight_split':
+      inner = `
+        <rect x="20" y="36" width="134" height="126" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+        <rect x="35" y="90" width="18" height="55" fill="#171EDB"/><rect x="65" y="70" width="18" height="75" fill="#171EDB"/><rect x="95" y="55" width="18" height="90" fill="#10B981"/>
+        <rect x="166" y="36" width="134" height="38" rx="4" fill="#171EDB" opacity="0.25"/>
+        <rect x="166" y="80" width="134" height="38" rx="4" fill="#171EDB" opacity="0.25"/>
+        <rect x="166" y="124" width="134" height="38" rx="4" fill="#F50912" opacity="0.25"/>
+      `;
+      break;
+
+    case 'segment_performance':
+      inner = `
+        <rect x="20" y="36" width="86" height="126" rx="4" fill="#171EDB" opacity="0.15" stroke="#171EDB" stroke-width="1"/>
+        <rect x="116" y="36" width="86" height="126" rx="4" fill="#171EDB" opacity="0.15" stroke="#171EDB" stroke-width="1"/>
+        <rect x="214" y="36" width="86" height="126" rx="4" fill="#10B981" opacity="0.15" stroke="#10B981" stroke-width="1"/>
+      `;
+      break;
+
+    case 'region_performance':
+      inner = `
+        <rect x="20" y="36" width="134" height="58" rx="4" fill="#171EDB" opacity="0.25"/>
+        <rect x="166" y="36" width="134" height="58" rx="4" fill="#171EDB" opacity="0.25"/>
+        <rect x="20" y="102" width="134" height="58" rx="4" fill="#171EDB" opacity="0.25"/>
+        <rect x="166" y="102" width="134" height="58" rx="4" fill="#10B981" opacity="0.25"/>
+      `;
+      break;
+
+    case 'cib_portfolio':
+      inner = `
+        <rect x="20" y="36" width="140" height="126" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+        <rect x="30" y="55" width="110" height="12" rx="2" fill="#171EDB"/><rect x="30" y="75" width="85" height="12" rx="2" fill="#00F5FF"/><rect x="30" y="95" width="70" height="12" rx="2" fill="#10B981"/><rect x="30" y="115" width="45" height="12" rx="2" fill="#F50912"/>
+        <rect x="170" y="36" width="130" height="126" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+      `;
+      break;
+
+    case 'credit_quality':
+      inner = `
+        <rect x="20" y="36" width="170" height="126" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+        <rect x="30" y="50" width="140" height="14" rx="2" fill="#10B981"/><rect x="30" y="70" width="110" height="14" rx="2" fill="#00F5FF"/><rect x="30" y="90" width="70" height="14" rx="2" fill="#F59E0B"/><rect x="30" y="110" width="45" height="14" rx="2" fill="#EF4444"/><rect x="30" y="130" width="25" height="14" rx="2" fill="#991B1B"/>
+        <circle cx="245" cy="100" r="35" fill="none" stroke="#10B981" stroke-width="8"/><text x="245" y="105" font-size="12" font-weight="bold" fill="#FFF" text-anchor="middle">1.4%</text>
+      `;
+      break;
+
+    case 'collections':
+      inner = `
+        <rect x="20" y="36" width="65" height="126" rx="4" fill="#10B981" opacity="0.2"/><rect x="92" y="36" width="65" height="126" rx="4" fill="#00F5FF" opacity="0.2"/><rect x="164" y="36" width="65" height="126" rx="4" fill="#F59E0B" opacity="0.2"/><rect x="235" y="36" width="65" height="126" rx="4" fill="#EF4444" opacity="0.2"/>
+      `;
+      break;
+
+    case 'cx_dashboard':
+      inner = `
+        <rect x="20" y="36" width="86" height="60" rx="4" fill="#10B981" opacity="0.25"/><rect x="116" y="36" width="86" height="60" rx="4" fill="#171EDB" opacity="0.25"/><rect x="214" y="36" width="86" height="60" rx="4" fill="#00F5FF" opacity="0.25"/>
+        <rect x="20" y="106" width="280" height="56" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+        <rect x="30" y="125" width="180" height="16" rx="3" fill="#10B981"/><rect x="215" y="125" width="45" height="16" rx="3" fill="#9CA3AF"/><rect x="265" y="125" width="25" height="16" rx="3" fill="#EF4444"/>
+      `;
+      break;
+
+    case 'funnel':
+      inner = `
+        <polygon points="25,40 295,40 270,62 50,62" fill="#171EDB"/>
+        <polygon points="50,64 270,64 245,86 75,86" fill="#00F5FF"/>
+        <polygon points="75,88 245,88 220,110 100,110" fill="#10B981"/>
+        <polygon points="100,112 220,112 195,134 125,134" fill="#F59E0B"/>
+        <polygon points="125,136 195,136 175,158 145,158" fill="#F50912"/>
+      `;
+      break;
+
+    case 'sla_dashboard':
+      inner = `
+        <rect x="20" y="36" width="86" height="70" rx="4" fill="#10B981" opacity="0.2" stroke="#10B981" stroke-width="1"/><circle cx="63" cy="68" r="22" fill="none" stroke="#10B981" stroke-width="5"/>
+        <rect x="116" y="36" width="86" height="70" rx="4" fill="#171EDB" opacity="0.2" stroke="#171EDB" stroke-width="1"/><circle cx="159" cy="68" r="22" fill="none" stroke="#171EDB" stroke-width="5"/>
+        <rect x="214" y="36" width="86" height="70" rx="4" fill="#00F5FF" opacity="0.2" stroke="#00F5FF" stroke-width="1"/><circle cx="257" cy="68" r="22" fill="none" stroke="#00F5FF" stroke-width="5"/>
+        <rect x="20" y="116" width="280" height="44" rx="4" fill="#081235" stroke="#10B981" stroke-width="1"/>
+      `;
+      break;
+
+    case 'incident_dashboard':
+      inner = `
+        <rect x="20" y="36" width="86" height="126" rx="4" fill="#EF4444" opacity="0.15" stroke="#EF4444" stroke-width="1"/>
+        <rect x="116" y="36" width="86" height="126" rx="4" fill="#F59E0B" opacity="0.15" stroke="#F59E0B" stroke-width="1"/>
+        <rect x="214" y="36" width="86" height="126" rx="4" fill="#171EDB" opacity="0.15" stroke="#171EDB" stroke-width="1"/>
+      `;
+      break;
+
+    case 'root_cause':
+      inner = `
+        <rect x="20" y="36" width="134" height="58" rx="4" fill="#171EDB" opacity="0.25"/>
+        <rect x="166" y="36" width="134" height="58" rx="4" fill="#171EDB" opacity="0.25"/>
+        <rect x="20" y="102" width="134" height="58" rx="4" fill="#171EDB" opacity="0.25"/>
+        <rect x="166" y="102" width="134" height="58" rx="4" fill="#F50912" opacity="0.25"/>
+      `;
+      break;
+
+    case 'quote':
+      inner = `
+        <rect x="20" y="36" width="280" height="126" rx="6" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+        <text x="40" y="75" font-size="34" fill="#171EDB" font-family="serif">“</text>
+        <text x="140" y="65" font-size="16" fill="#F59E0B">★★★★★</text>
+        <rect x="40" y="85" width="240" height="8" rx="2" fill="#FFF"/><rect x="40" y="100" width="200" height="8" rx="2" fill="#FFF"/>
+        <circle cx="50" cy="135" r="10" fill="#171EDB"/><rect x="68" y="130" width="90" height="8" rx="2" fill="#E9ECFF"/>
+      `;
+      break;
+
+    case 'process':
+      inner = `
+        <rect x="16" y="65" width="50" height="55" rx="4" fill="#171EDB"/>
+        <rect x="74" y="65" width="50" height="55" rx="4" fill="#171EDB"/>
+        <rect x="132" y="65" width="50" height="55" rx="4" fill="#171EDB"/>
+        <rect x="190" y="65" width="50" height="55" rx="4" fill="#00F5FF"/>
+        <rect x="248" y="65" width="56" height="55" rx="4" fill="#10B981"/>
+        <path d="M 68 92 L 72 92" stroke="#FFF" stroke-width="2"/><path d="M 126 92 L 130 92" stroke="#FFF" stroke-width="2"/><path d="M 184 92 L 188 92" stroke="#FFF" stroke-width="2"/><path d="M 242 92 L 246 92" stroke="#FFF" stroke-width="2"/>
+      `;
+      break;
+
+    case 'ui_showcase':
+      inner = `
+        <rect x="35" y="35" width="250" height="130" rx="8" fill="#0c1322" stroke="#171EDB" stroke-width="2"/>
+        <rect x="35" y="35" width="250" height="18" rx="8" fill="#171EDB"/>
+        <circle cx="48" cy="44" r="3" fill="#EF4444"/><circle cx="58" cy="44" r="3" fill="#F59E0B"/><circle cx="68" cy="44" r="3" fill="#10B981"/>
+        <rect x="45" y="60" width="40" height="95" rx="3" fill="#171EDB" opacity="0.3"/>
+        <rect x="95" y="60" width="180" height="40" rx="3" fill="#171EDB" opacity="0.15"/>
+        <rect x="95" y="108" width="180" height="47" rx="3" fill="#171EDB" opacity="0.15"/>
+      `;
+      break;
+
+    case 'case_study':
+    case 'problem_solution':
+      inner = `
+        <rect x="20" y="36" width="86" height="126" rx="4" fill="#EF4444" opacity="0.15" stroke="#EF4444" stroke-width="1"/>
+        <rect x="116" y="36" width="86" height="126" rx="4" fill="#171EDB" opacity="0.15" stroke="#171EDB" stroke-width="1"/>
+        <rect x="214" y="36" width="86" height="126" rx="4" fill="#10B981" opacity="0.15" stroke="#10B981" stroke-width="1"/>
+      `;
+      break;
+
+    case 'comparison':
+      inner = `
+        <rect x="20" y="36" width="280" height="126" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+        <rect x="110" y="36" width="90" height="126" fill="#171EDB" opacity="0.25" stroke="#171EDB" stroke-width="1.5"/>
+        <line x1="20" y1="65" x2="300" y2="65" stroke="#171EDB" stroke-width="1"/>
+        <line x1="20" y1="95" x2="300" y2="95" stroke="#171EDB" stroke-width="1"/>
+        <line x1="20" y1="125" x2="300" y2="125" stroke="#171EDB" stroke-width="1"/>
+      `;
+      break;
+
+    case 'risk_matrix':
+      inner = `
+        <rect x="20" y="36" width="280" height="126" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+        <rect x="60" y="44" width="50" height="24" fill="#F59E0B" opacity="0.6"/><rect x="115" y="44" width="50" height="24" fill="#EF4444" opacity="0.6"/><rect x="170" y="44" width="50" height="24" fill="#DC2626" opacity="0.7"/><rect x="225" y="44" width="50" height="24" fill="#991B1B" opacity="0.8"/>
+        <rect x="60" y="72" width="50" height="24" fill="#10B981" opacity="0.5"/><rect x="115" y="72" width="50" height="24" fill="#F59E0B" opacity="0.6"/><rect x="170" y="72" width="50" height="24" fill="#EF4444" opacity="0.6"/><rect x="225" y="72" width="50" height="24" fill="#DC2626" opacity="0.7"/>
+        <rect x="60" y="100" width="50" height="24" fill="#10B981" opacity="0.6"/><rect x="115" y="100" width="50" height="24" fill="#10B981" opacity="0.5"/><rect x="170" y="100" width="50" height="24" fill="#F59E0B" opacity="0.6"/><rect x="225" y="100" width="50" height="24" fill="#EF4444" opacity="0.6"/>
+        <rect x="60" y="128" width="50" height="24" fill="#059669" opacity="0.7"/><rect x="115" y="128" width="50" height="24" fill="#10B981" opacity="0.6"/><rect x="170" y="128" width="50" height="24" fill="#10B981" opacity="0.5"/><rect x="225" y="128" width="50" height="24" fill="#F59E0B" opacity="0.6"/>
+        <circle cx="140" cy="56" r="5" fill="#FFF" stroke="#000" stroke-width="1.5"/><circle cx="250" cy="84" r="5" fill="#FFF" stroke="#000" stroke-width="1.5"/>
+      `;
+      break;
+
+    case 'controls_compliance':
+      inner = `
+        <rect x="20" y="36" width="280" height="126" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+        <circle cx="35" cy="58" r="6" fill="#10B981"/><circle cx="35" cy="88" r="6" fill="#10B981"/><circle cx="35" cy="118" r="6" fill="#F59E0B"/><circle cx="35" cy="146" r="6" fill="#10B981"/>
+        <rect x="52" y="55" width="180" height="7" rx="2" fill="#FFF"/><rect x="52" y="85" width="160" height="7" rx="2" fill="#FFF"/><rect x="52" y="115" width="140" height="7" rx="2" fill="#FFF"/><rect x="52" y="143" width="170" height="7" rx="2" fill="#FFF"/>
+        <rect x="245" y="52" width="45" height="14" rx="3" fill="#10B981"/><rect x="245" y="82" width="45" height="14" rx="3" fill="#10B981"/><rect x="245" y="112" width="45" height="14" rx="3" fill="#F59E0B"/><rect x="245" y="140" width="45" height="14" rx="3" fill="#10B981"/>
+      `;
+      break;
+
+    case 'decision_matrix':
+      inner = `
+        <rect x="20" y="36" width="280" height="126" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+        <rect x="20" y="36" width="280" height="22" rx="4" fill="#171EDB"/>
+        <rect x="180" y="65" width="110" height="24" rx="3" fill="#10B981" opacity="0.25"/>
+        <line x1="20" y1="95" x2="300" y2="95" stroke="#171EDB" stroke-width="1"/>
+        <line x1="20" y1="125" x2="300" y2="125" stroke="#171EDB" stroke-width="1"/>
+      `;
+      break;
+
+    case 'scenario_analysis':
+      inner = `
+        <rect x="20" y="36" width="86" height="126" rx="4" fill="#EF4444" opacity="0.15" stroke="#EF4444" stroke-width="1"/>
+        <rect x="116" y="36" width="86" height="126" rx="4" fill="#171EDB" opacity="0.25" stroke="#171EDB" stroke-width="1.5"/>
+        <rect x="214" y="36" width="86" height="126" rx="4" fill="#10B981" opacity="0.15" stroke="#10B981" stroke-width="1"/>
+      `;
+      break;
+
+    case 'roadmap':
+      inner = `
+        <rect x="20" y="36" width="280" height="126" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+        <line x1="88" y1="36" x2="88" y2="162" stroke="#171EDB" stroke-width="1" opacity="0.3"/>
+        <line x1="158" y1="36" x2="158" y2="162" stroke="#171EDB" stroke-width="1" opacity="0.3"/>
+        <line x1="228" y1="36" x2="228" y2="162" stroke="#171EDB" stroke-width="1" opacity="0.3"/>
+        <rect x="30" y="55" width="100" height="18" rx="4" fill="#171EDB"/><rect x="100" y="85" width="110" height="18" rx="4" fill="#00F5FF"/><rect x="180" y="115" width="100" height="18" rx="4" fill="#10B981"/>
+      `;
+      break;
+
+    case 'project_status':
+      inner = `
+        <rect x="20" y="36" width="86" height="55" rx="4" fill="#10B981" opacity="0.2"/><circle cx="35" cy="55" r="6" fill="#10B981"/>
+        <rect x="116" y="36" width="86" height="55" rx="4" fill="#F59E0B" opacity="0.2"/><circle cx="131" cy="55" r="6" fill="#F59E0B"/>
+        <rect x="214" y="36" width="86" height="55" rx="4" fill="#10B981" opacity="0.2"/><circle cx="229" cy="55" r="6" fill="#10B981"/>
+        <rect x="20" y="102" width="280" height="60" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+      `;
+      break;
+
+    case 'action_tracker':
+      inner = `
+        <rect x="20" y="36" width="280" height="126" rx="4" fill="#081235" stroke="#171EDB" stroke-width="1"/>
+        <rect x="20" y="36" width="280" height="22" rx="4" fill="#171EDB"/>
+        <rect x="30" y="68" width="30" height="14" rx="3" fill="#EF4444"/>
+        <rect x="30" y="98" width="30" height="14" rx="3" fill="#F59E0B"/>
+        <rect x="30" y="128" width="30" height="14" rx="3" fill="#10B981"/>
+      `;
+      break;
+
+    default:
+      inner = `
+        <rect x="20" y="36" width="134" height="126" rx="4" fill="#171EDB" opacity="0.15" stroke="#171EDB" stroke-width="1"/>
+        <rect x="166" y="36" width="134" height="126" rx="4" fill="#171EDB" opacity="0.15" stroke="#171EDB" stroke-width="1"/>
+      `;
+      break;
+  }
+
+  return `<svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">
+    <rect width="320" height="180" fill="#081235"/>
+    ${headerSvg}
+    ${inner}
+  </svg>`;
+}
+
 function renderCatalogContent() {
   if (!layoutCatalogBody) return;
   layoutCatalogBody.innerHTML = MB_40_LAYOUTS_CATALOG.map(cat => `
@@ -4495,6 +4882,9 @@ function renderCatalogContent() {
         ${cat.items.map(it => `
           <div class="layout-catalog-card" data-layout-id="${it.id}">
             <div>
+              <div class="layout-card-preview">
+                ${getLayoutThumbnailSvg(it.id)}
+              </div>
               <div class="layout-card-header">
                 <span class="layout-card-name">${escapeHtml(it.name)}</span>
                 <span class="layout-card-id">${it.id}</span>

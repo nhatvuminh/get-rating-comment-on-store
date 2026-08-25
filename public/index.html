@@ -7,8 +7,9 @@
   <meta name="description" content="Tool lấy rating và comment từ Google Play Store và App Store">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@400;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 </head>
 <body>
   <div class="app">
@@ -43,6 +44,15 @@
               <path d="M12 6v6l4 2"/>
             </svg>
             Rating AI
+          </button>
+          <button class="nav-tab-btn" id="navTabSlide">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+              <line x1="8" y1="21" x2="16" y2="21"/>
+              <line x1="12" y1="17" x2="12" y2="21"/>
+              <path d="M7 8h10M7 12h6"/>
+            </svg>
+            Tạo Slide Chuyên Nghiệp
           </button>
         </nav>
 
@@ -360,6 +370,691 @@
           </div>
 
           <div id="aiResultsWrapper"></div>
+        </section>
+      </div>
+
+      <!-- MODE 3: SLIDE GENERATOR VIEW -->
+      <div id="modeSlideView" class="mode-view">
+        <!-- Hero Header -->
+        <section class="slide-hero-section">
+          <div class="slide-hero-content">
+            <div class="slide-hero-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              Brand Kit & AI Presentation Studio
+            </div>
+            <h2>Tạo Slide Chuyên Nghiệp Theo Nhận Diện Thương Hiệu</h2>
+            <p class="slide-hero-desc">
+              Tự động thiết kế bài thuyết trình chuẩn <strong>Brand Kit</strong> từ dàn ý, tài liệu đính kèm hoặc dữ liệu phân tích <strong>Rating AI</strong>. Xuất file <strong>Microsoft PowerPoint (.pptx)</strong> có thể chỉnh sửa 100%.
+            </p>
+          </div>
+        </section>
+
+        <!-- STEP 1: BRAND KIT & TEMPLATE STUDIO -->
+        <section class="config-section slide-config-card">
+          <div class="section-header">
+            <h2>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+                <path d="M2 2l7.586 7.586"/>
+                <circle cx="11" cy="11" r="2"/>
+              </svg>
+              1. Cấu Hình Nhận Diện & Template PowerPoint
+            </h2>
+            <div class="brandkit-header-actions">
+              <button class="btn btn-sm btn-ghost" id="btnResetBrandKit" title="Khôi phục mặc định">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                  <path d="M3 3v5h5"/>
+                </svg>
+                Mặc định
+              </button>
+              <button class="btn btn-sm btn-save" id="btnSaveBrandKit" title="Lưu lại cho các lần sau">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17 21 17 13 7 13 7 21"/>
+                  <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                Lưu Cấu Hình
+              </button>
+            </div>
+          </div>
+
+          <!-- Mode Switcher: Custom Brand Kit vs PPTX Template Upload -->
+          <div class="brandkit-mode-toggle">
+            <button type="button" class="bk-mode-tab-btn active" id="tabBtnCustomBrand" data-target="viewCustomBrand">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 2a7 7 0 0 0 0 14h1a2 2 0 0 1 2 2v1a2 2 0 0 0 2 2h1a7 7 0 0 0 0-14"/>
+              </svg>
+              🎨 Tùy Chỉnh Brand Kit Thủ Công
+            </button>
+            <button type="button" class="bk-mode-tab-btn" id="tabBtnTemplateUpload" data-target="viewTemplateUpload">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              📁 Tải Lên Template Mẫu PowerPoint (.pptx)
+              <span class="badge-feature-glow">AI Layout Mapping</span>
+            </button>
+          </div>
+
+          <!-- SUBVIEW 1: CUSTOM BRAND KIT -->
+          <div class="brandkit-subview active" id="viewCustomBrand">
+            <!-- Color Presets -->
+            <div class="brandkit-presets-row">
+              <span class="preset-label">Bảng màu mẫu gợi ý:</span>
+              <div class="preset-chips" id="presetChipsContainer">
+                <button type="button" class="preset-chip active" data-preset="modernblue">
+                  <span class="chip-dot" style="background:#141ED2"></span>
+                  <span class="chip-dot" style="background:#7B5FFF"></span>
+                  <span class="chip-dot" style="background:#12B7B7"></span>
+                  Modern Royal Blue
+                </button>
+                <button type="button" class="preset-chip" data-preset="tech">
+                  <span class="chip-dot" style="background:#4f46e5"></span>
+                  <span class="chip-dot" style="background:#06b6d4"></span>
+                  <span class="chip-dot" style="background:#10b981"></span>
+                  Tech Indigo
+                </button>
+                <button type="button" class="preset-chip" data-preset="corporate">
+                  <span class="chip-dot" style="background:#1e3a8a"></span>
+                  <span class="chip-dot" style="background:#3b82f6"></span>
+                  <span class="chip-dot" style="background:#f59e0b"></span>
+                  Corporate Navy
+                </button>
+                <button type="button" class="preset-chip" data-preset="gold">
+                  <span class="chip-dot" style="background:#1e1b4b"></span>
+                  <span class="chip-dot" style="background:#d97706"></span>
+                  <span class="chip-dot" style="background:#fbbf24"></span>
+                  Royal Gold
+                </button>
+                <button type="button" class="preset-chip" data-preset="eco">
+                  <span class="chip-dot" style="background:#064e3b"></span>
+                  <span class="chip-dot" style="background:#059669"></span>
+                  <span class="chip-dot" style="background:#10b981"></span>
+                  Eco Emerald
+                </button>
+                <button type="button" class="preset-chip" data-preset="coral">
+                  <span class="chip-dot" style="background:#991b1b"></span>
+                  <span class="chip-dot" style="background:#f97316"></span>
+                  <span class="chip-dot" style="background:#fbbf24"></span>
+                  Sunset Coral
+                </button>
+                <button type="button" class="preset-chip" data-preset="violet">
+                  <span class="chip-dot" style="background:#581c87"></span>
+                  <span class="chip-dot" style="background:#8b5cf6"></span>
+                  <span class="chip-dot" style="background:#ec4899"></span>
+                  Creative Violet
+                </button>
+                <button type="button" class="preset-chip" data-preset="slate">
+                  <span class="chip-dot" style="background:#1e293b"></span>
+                  <span class="chip-dot" style="background:#475569"></span>
+                  <span class="chip-dot" style="background:#0ea5e9"></span>
+                  Minimal Slate
+                </button>
+                <button type="button" class="preset-chip" data-preset="darkcyber">
+                  <span class="chip-dot" style="background:#090d16"></span>
+                  <span class="chip-dot" style="background:#6366f1"></span>
+                  <span class="chip-dot" style="background:#00f5ff"></span>
+                  Dark Cyber
+                </button>
+              </div>
+            </div>
+
+            <div class="brandkit-grid">
+              <!-- Brand Colors Column -->
+              <div class="card brandkit-card">
+                <div class="card-title">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 2a7 7 0 0 0 0 14h1a2 2 0 0 1 2 2v1a2 2 0 0 0 2 2h1a7 7 0 0 0 0-14"/>
+                  </svg>
+                  Màu sắc Thương hiệu (Brand Colors)
+                </div>
+                <div class="color-inputs-grid">
+                  <div class="color-picker-item">
+                    <label for="colorPickerPrimary">Màu chủ đạo (Primary)</label>
+                    <div class="color-picker-box">
+                      <input type="color" id="colorPickerPrimary" value="#141ed2">
+                      <input type="text" id="colorHexPrimary" value="#141ED2" class="hex-input" maxlength="7">
+                    </div>
+                    <span class="color-desc">Dùng cho Tiêu đề, thẻ chính, bìa slide</span>
+                  </div>
+
+                  <div class="color-picker-item">
+                    <label for="colorPickerSecondary">Màu phụ (Secondary)</label>
+                    <div class="color-picker-box">
+                      <input type="color" id="colorPickerSecondary" value="#7b5fff">
+                      <input type="text" id="colorHexSecondary" value="#7B5FFF" class="hex-input" maxlength="7">
+                    </div>
+                    <span class="color-desc">Dùng cho Phụ đề, viền thẻ, badge tag</span>
+                  </div>
+
+                  <div class="color-picker-item">
+                    <label for="colorPickerAccent">Màu nhấn (Accent)</label>
+                    <div class="color-picker-box">
+                      <input type="color" id="colorPickerAccent" value="#12b7b7">
+                      <input type="text" id="colorHexAccent" value="#12B7B7" class="hex-input" maxlength="7">
+                    </div>
+                    <span class="color-desc">Dùng cho Số liệu KPI, điểm nổi bật, chart</span>
+                  </div>
+
+                  <div class="color-picker-item">
+                    <label for="colorPickerBg">Màu nền Slide (Background)</label>
+                    <div class="color-picker-box">
+                      <input type="color" id="colorPickerBg" value="#ffffff">
+                      <input type="text" id="colorHexBg" value="#FFFFFF" class="hex-input" maxlength="7">
+                    </div>
+                    <span class="color-desc">Nền slide (Sáng hoặc Tối)</span>
+                  </div>
+
+                  <div class="color-picker-item">
+                    <label for="colorPickerText">Màu chữ nội dung (Text)</label>
+                    <div class="color-picker-box">
+                      <input type="color" id="colorPickerText" value="#192d39">
+                      <input type="text" id="colorHexText" value="#192D39" class="hex-input" maxlength="7">
+                    </div>
+                    <span class="color-desc">Màu chữ chính trên slide</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Typography & Brand Info Column -->
+              <div class="card brandkit-card">
+                <div class="card-title">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <polyline points="4 7 4 4 20 4 20 7"/>
+                    <line x1="9" y1="20" x2="15" y2="20"/>
+                    <line x1="12" y1="4" x2="12" y2="20"/>
+                  </svg>
+                  Font Chữ & Thông Tin Thương Hiệu
+                </div>
+                <div class="brandkit-inputs-flow">
+                  <div class="form-row-2col">
+                    <div class="form-group">
+                      <label for="fontHeadingSelect">Phông chữ tiêu đề</label>
+                      <select id="fontHeadingSelect" class="styled-select">
+                        <option value="Segoe UI" selected>Segoe UI (Thanh lịch, Chuẩn Office)</option>
+                        <option value="Calibri">Calibri (Trang nhã, Tiêu chuẩn)</option>
+                        <option value="Arial">Arial (Phổ biến, Rõ ràng)</option>
+                        <option value="Montserrat">Montserrat (Hiện đại, Đậm nét)</option>
+                        <option value="Inter">Inter (Tinh tế, Công nghệ)</option>
+                        <option value="Trebuchet MS">Trebuchet MS (Năng động)</option>
+                        <option value="Georgia">Georgia (Cổ điển, Sang trọng)</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="fontBodySelect">Phông chữ nội dung</label>
+                      <select id="fontBodySelect" class="styled-select">
+                        <option value="Calibri" selected>Calibri (Chuẩn Office)</option>
+                        <option value="Segoe UI">Segoe UI (Thanh lịch)</option>
+                        <option value="Arial">Arial (Phổ biến)</option>
+                        <option value="Inter">Inter (Tinh tế)</option>
+                        <option value="Montserrat">Montserrat</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="form-row-2col">
+                    <div class="form-group">
+                      <label for="brandNameInput">Tên thương hiệu / Tổ chức</label>
+                      <input type="text" id="brandNameInput" placeholder="Ví dụ: TechNova Corporation" value="Digital Enterprise" />
+                    </div>
+                    <div class="form-group">
+                      <label for="brandPresenterInput">Người báo cáo / Tác giả</label>
+                      <input type="text" id="brandPresenterInput" placeholder="Ví dụ: Ban Quản Lý Sản Phẩm" value="Ban Đổi Mới & Trải Nghiệm Khách Hàng" />
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="brandFooterInput">Thông điệp chân trang (Footer / Disclaimer)</label>
+                    <input type="text" id="brandFooterInput" placeholder="Ví dụ: Báo cáo bảo mật nội bộ | Confidential" value="Báo cáo chiến lược & Phân tích trải nghiệm | Confidential" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Logo & Watermark Column -->
+              <div class="card brandkit-card">
+                <div class="card-title">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  Logo & Vị Trí Hiển Thị
+                </div>
+                <div class="logo-config-flow">
+                  <div class="logo-dropzone" id="brandLogoDropzone">
+                    <input type="file" id="brandLogoInput" accept="image/png, image/jpeg, image/svg+xml" style="display:none">
+                    <div id="brandLogoEmptyState">
+                      <div class="dropzone-icon">🖼️</div>
+                      <div class="dropzone-text">Kéo thả Logo (PNG/JPG) vào đây hoặc <span class="browse-link">chọn ảnh</span></div>
+                      <div class="dropzone-sub">Khuyên dùng ảnh PNG nền trong suốt</div>
+                    </div>
+                    <div id="brandLogoPreviewWrapper" style="display:none">
+                      <img id="brandLogoImg" src="" alt="Brand Logo Preview" />
+                      <button type="button" class="btn-remove-logo" id="btnRemoveLogo" title="Xóa logo">✕</button>
+                    </div>
+                  </div>
+
+                  <div class="form-row-2col" style="margin-top: 12px;">
+                    <div class="form-group">
+                      <label for="brandLogoPosition">Vị trí Logo trên Slide</label>
+                      <select id="brandLogoPosition" class="styled-select">
+                        <option value="top-right" selected>Góc trên bên phải (Top-Right)</option>
+                        <option value="top-left">Góc trên bên trái (Top-Left)</option>
+                        <option value="bottom-right">Góc dưới bên phải (Bottom-Right)</option>
+                        <option value="cover-only">Chỉ hiện ở Trang bìa</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="brandLogoSize">Kích thước Logo</label>
+                      <select id="brandLogoSize" class="styled-select">
+                        <option value="small">Nhỏ (Gọn gàng)</option>
+                        <option value="medium" selected>Vừa vặn (Chuẩn)</option>
+                        <option value="large">Lớn (Nổi bật)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUBVIEW 2: PPTX TEMPLATE UPLOAD -->
+          <div class="brandkit-subview" id="viewTemplateUpload" style="display:none">
+            <!-- Template Upload Dropzone -->
+            <div class="template-upload-container">
+              <div class="template-dropzone" id="templateDropzone">
+                <input type="file" id="templateFileInput" accept=".pptx" style="display:none">
+                <div class="dropzone-icon-large">📊</div>
+                <h3 class="template-dropzone-title">Kéo thả file Template PowerPoint (.pptx) mẫu vào đây</h3>
+                <p class="template-dropzone-sub">Hỗ trợ file thuyết trình mẫu .pptx có sẵn của Doanh nghiệp / Tổ chức. AI sẽ tự động đọc hiểu Layouts, Màu Master, Font chữ và Vector Shapes.</p>
+                <button type="button" class="btn btn-primary btn-browse-template" onclick="document.getElementById('templateFileInput').click()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                  Chọn File Template (.pptx) Từ Máy Tính
+                </button>
+              </div>
+
+              <!-- Template Loaded Profile Card -->
+              <div class="template-loaded-card" id="templateLoadedCard" style="display:none">
+                <div class="template-card-header">
+                  <div class="template-header-left">
+                    <div class="template-badge-icon">📑</div>
+                    <div>
+                      <div class="template-name-row">
+                        <h3 id="templateLoadedName">Template_Doanh_Nghiep.pptx</h3>
+                        <span class="badge-success-glow" id="templateSlideCountBadge">6 Layouts mẫu</span>
+                      </div>
+                      <p class="template-header-meta" id="templateHeaderMeta">Kích thước: 1.4 MB • Đã phân tích Slide Master & Theme</p>
+                    </div>
+                  </div>
+                  <div class="template-header-right">
+                    <button type="button" class="btn btn-sm btn-accent" id="btnSyncTemplateBrand">
+                      ✨ Áp Dụng Màu & Font Vào Brand Kit
+                    </button>
+                    <button type="button" class="btn btn-sm btn-ghost btn-danger-text" id="btnRemoveTemplate" title="Xóa template này">
+                      ✕ Đổi Template Khác
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Template Specs Grid -->
+                <div class="template-specs-grid">
+                  <!-- Spec 1: Colors -->
+                  <div class="template-spec-box">
+                    <span class="spec-label">Bảng màu Master nhận diện:</span>
+                    <div class="spec-color-chips" id="templateColorChips">
+                      <!-- Populated via JS -->
+                    </div>
+                  </div>
+
+                  <!-- Spec 2: Fonts -->
+                  <div class="template-spec-box">
+                    <span class="spec-label">Phông chữ Master:</span>
+                    <div class="spec-font-badges" id="templateFontBadges">
+                      <!-- Populated via JS -->
+                    </div>
+                  </div>
+
+                  <!-- Spec 3: Logo -->
+                  <div class="template-spec-box" id="templateLogoBox" style="display:none">
+                    <span class="spec-label">Logo / Watermark nhận diện:</span>
+                    <div class="spec-logo-preview" id="templateLogoPreview"></div>
+                  </div>
+                </div>
+
+                <!-- Recognized Layouts Grid -->
+                <div class="template-layouts-section">
+                  <span class="spec-label">Các Layouts Mẫu AI Đã Nhận Diện Trong Template:</span>
+                  <div class="template-layouts-grid" id="templateLayoutsGrid">
+                    <!-- Populated via JS -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 2: CONTENT & ATTACHMENTS INPUT -->
+        <section class="config-section slide-content-section">
+          <div class="section-header">
+            <h2>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+              2. Nội Dung Đầu Vào & Tài Liệu Đính Kèm
+            </h2>
+            <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #818cf8; border-color: rgba(99, 102, 241, 0.3);">
+              3 Nguồn Nội Dung Linh Hoạt
+            </span>
+          </div>
+
+          <!-- Input Source Tabs -->
+          <div class="content-source-tabs">
+            <button type="button" class="source-tab-btn active" id="btnSourceText">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                <line x1="17" y1="10" x2="3" y2="10"/>
+                <line x1="21" y1="6" x2="3" y2="6"/>
+                <line x1="21" y1="14" x2="3" y2="14"/>
+                <line x1="17" y1="18" x2="3" y2="18"/>
+              </svg>
+              Nhập Dàn Ý & Văn Bản
+            </button>
+            <button type="button" class="source-tab-btn" id="btnSourceDocs">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+              </svg>
+              Đính Kèm File Tài Liệu (.docx, .xlsx, .txt, .pdf)
+            </button>
+            <button type="button" class="source-tab-btn" id="btnSourceRatingAI">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+              ⚡ Lấy Từ Dữ Liệu Rating AI Vừa Quét
+            </button>
+          </div>
+
+          <!-- Source Panel 1: Text & Prompt Templates -->
+          <div class="source-panel active" id="sourcePanelText">
+            <!-- Prompt Templates Bar -->
+            <div class="prompt-templates-block">
+              <div class="templates-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+                Chọn mẫu nội dung nhanh:
+              </div>
+              <div class="templates-chips" id="templatesChips">
+                <button type="button" class="template-chip" data-tpl="review_report">📊 Báo cáo Phân tích Đánh giá App</button>
+                <button type="button" class="template-chip" data-tpl="pitch_deck">🚀 Pitch Deck Giải pháp Sản phẩm</button>
+                <button type="button" class="template-chip" data-tpl="kpi_report">📈 Báo cáo Kinh doanh & KPI Quý</button>
+                <button type="button" class="template-chip" data-tpl="roadmap">🗺️ Kế hoạch Chiến lược & Roadmap</button>
+                <button type="button" class="template-chip" data-tpl="training">🎓 Khóa Đào tạo & Hướng dẫn Quy trình</button>
+                <button type="button" class="template-chip" data-tpl="market_research">🔍 Phân tích Thị trường & Đối thủ</button>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 14px;">
+              <div class="textarea-header">
+                <label for="slideContentInput">Dán nội dung bài thuyết trình, ghi chú cuộc họp, dàn ý hoặc kịch bản chi tiết:</label>
+                <button type="button" class="btn-clear-text" id="btnClearSlideText">Xóa trắng</button>
+              </div>
+              <textarea id="slideContentInput" rows="9" class="styled-textarea" placeholder="Nhập dàn ý, ý tưởng, gạch đầu dòng hoặc dán báo cáo phân tích vào đây... Hoặc bấm chọn 1 trong các mẫu gợi ý phía trên để điền sẵn kịch bản mẫu chuyên nghiệp."></textarea>
+            </div>
+          </div>
+
+          <!-- Source Panel 2: Document Attachments -->
+          <div class="source-panel" id="sourcePanelDocs">
+            <div class="file-dropzone" id="slideDocDropzone">
+              <input type="file" id="slideDocInput" accept=".txt, .md, .docx, .xlsx, .xls, .json, .csv, .pdf" multiple style="display:none">
+              <div class="dropzone-icon">📎</div>
+              <div class="dropzone-text font-medium">Kéo thả file tài liệu đính kèm vào đây hoặc <span class="browse-link">chọn file từ máy tính</span></div>
+              <div class="dropzone-sub">Hỗ trợ: Word (.docx), Excel (.xlsx, .xls), Text (.txt, .md), JSON, CSV. Hệ thống sẽ tự động đọc và trích xuất nội dung vào bài thuyết trình.</div>
+            </div>
+            <div id="slideDocList" class="file-chip-list" style="margin-top: 12px;"></div>
+          </div>
+
+          <!-- Source Panel 3: Direct Rating AI Bridge -->
+          <div class="source-panel" id="sourcePanelRatingAI">
+            <div class="rating-bridge-card">
+              <div class="bridge-icon">⚡</div>
+              <div class="bridge-details">
+                <h4 id="ratingBridgeTitle">Dữ liệu Đánh giá Khách hàng từ Tab Rating & AI</h4>
+                <p id="ratingBridgeDesc" class="text-muted">
+                  Tự động kế thừa kết quả cào đánh giá và phân tích cảm xúc từ Tab 1 & Tab 2 (Tên ứng dụng, phân bố số sao, các vấn đề nổi cộm, tiếng nói khách hàng, giải pháp cải tiến).
+                </p>
+                <div id="ratingBridgeStats" class="bridge-stats-preview" style="display:none"></div>
+              </div>
+              <button type="button" class="btn btn-primary" id="btnImportRatingData" style="white-space: nowrap;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Tải Dữ Liệu Vào Trình Tạo Slide
+              </button>
+            </div>
+          </div>
+
+          <!-- Slide Generation Parameters -->
+          <div class="slide-params-grid">
+            <div class="form-group">
+              <label for="slideDeckTitle">Tiêu đề bài thuyết trình (Title)</label>
+              <input type="text" id="slideDeckTitle" placeholder="Ví dụ: Báo Cáo Chiến Lược Trải Nghiệm Khách Hàng 2026" value="Báo Cáo Toàn Diện Về Trải Nghiệm Khách Hàng & Chiến Lược Cải Tiến" />
+            </div>
+
+            <div class="form-group">
+              <label for="slideDeckSubtitle">Phụ đề / Thông điệp chính</label>
+              <input type="text" id="slideDeckSubtitle" placeholder="Ví dụ: Phân tích chuyên sâu từ phản hồi thực tế & Đề xuất giải pháp" value="Phân tích dữ liệu thực tế từ người dùng & Lộ trình hành động bứt phá" />
+            </div>
+
+            <div class="form-group">
+              <label for="slideAudience">Đối tượng người nghe</label>
+              <select id="slideAudience" class="styled-select">
+                <option value="board" selected>Ban Giám Đốc & Hội đồng Quản trị</option>
+                <option value="clients">Khách hàng & Đối tác chiến lược</option>
+                <option value="team">Toàn thể Đội ngũ & Nhân sự nội bộ</option>
+                <option value="investors">Nhà đầu tư & Hội đồng thẩm định</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="slideCountSelect">Số lượng Slide mong muốn</label>
+              <select id="slideCountSelect" class="styled-select">
+                <option value="auto" selected>✨ Tự động tối ưu theo nội dung (Khuyên dùng ~6-10 slide)</option>
+                <option value="5">5 Slide (Bản tóm tắt Executive ngắn gọn)</option>
+                <option value="8">8 Slide (Bản chuẩn mực báo cáo quản trị)</option>
+                <option value="10">10 Slide (Bản chi tiết đầy đủ phân tích)</option>
+                <option value="12">12 Slide (Bản chuyên sâu dự án & roadmap)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="slideThemeStyle">Phong cách Bố cục (Layout Style)</label>
+              <select id="slideThemeStyle" class="styled-select">
+                <option value="modern" selected>Hiện đại & Trực quan (Modern Cards & Badges)</option>
+                <option value="corporate">Doanh nghiệp chỉn chu (Executive Corporate)</option>
+                <option value="infographic">Infographic & Số liệu KPI (Data-Driven)</option>
+                <option value="minimal">Tối giản thanh lịch (Clean Minimalist)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Main Generate Action Button -->
+          <div class="action-bar" style="margin-top: 24px; text-align: center;">
+            <button class="btn btn-primary btn-large btn-generate-slides" id="btnGenerateSlides">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+              ✨ Tạo Dàn Ý & Bài Thuyết Trình AI Chuyên Nghiệp
+            </button>
+          </div>
+        </section>
+
+        <!-- STEP 3: PROGRESS INDICATOR -->
+        <section class="progress-section" id="slideProgressSection" style="display:none">
+          <div class="progress-info">
+            <span id="slideProgressText">Đang phân tích cấu trúc bài và áp dụng Brand Kit...</span>
+            <span id="slideProgressDetails" class="text-muted">Đang sinh bố cục slide chuyên nghiệp</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="slideProgressBar" style="width: 0%;"></div>
+          </div>
+          <div class="slide-steps-checklist">
+            <div class="step-item" id="stepParse"><span class="step-icon">⏳</span> 1. Phân tích nội dung & trích xuất ý chính</div>
+            <div class="step-item" id="stepBrand"><span class="step-icon">⏳</span> 2. Áp dụng bảng màu & Typography Brand Kit</div>
+            <div class="step-item" id="stepLayout"><span class="step-icon">⏳</span> 3. Bố trí đa dạng layout (Cover, KPIs, Cards, Chart, Timeline)</div>
+            <div class="step-item" id="stepDone"><span class="step-icon">⏳</span> 4. Hoàn tất bài thuyết trình</div>
+          </div>
+        </section>
+
+        <!-- STEP 4: INTERACTIVE SLIDE STUDIO -->
+        <section class="slide-studio-section" id="slideStudioSection" style="display:none">
+          <!-- Studio Header Controls -->
+          <div class="studio-top-bar">
+            <div class="studio-left-controls">
+              <div class="slide-counter-badge">
+                <span id="currentSlideIndexLabel">Slide 1</span> / <span id="totalSlidesCountLabel">8</span>
+              </div>
+              <div class="slide-nav-arrows">
+                <button type="button" class="btn-nav-arrow" id="btnPrevSlide" title="Slide trước (Phím Mũi tên Trái)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <polyline points="15 18 9 12 15 6"/>
+                  </svg>
+                </button>
+                <button type="button" class="btn-nav-arrow" id="btnNextSlide" title="Slide tiếp (Phím Mũi tên Phải)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="studio-center-controls">
+              <label for="selectCurrentSlideLayout" class="studio-control-label">Bố cục slide này:</label>
+              <select id="selectCurrentSlideLayout" class="styled-select select-layout-sm">
+                <option value="cover">Trang Bìa (Cover Title Slide)</option>
+                <option value="agenda">Tổng Quan & Mục Lục (Summary & Agenda)</option>
+                <option value="content">Nội Dung Tiêu Chuẩn & Bullets (Standard Content)</option>
+                <option value="cards2">2 Cột Đối Chiếu & Chi Tiết (2-Column Cards)</option>
+                <option value="cards3">3 Cột Trụ Cột & Tính Năng (3-Card Pillars)</option>
+                <option value="cards4">4 Cột / Lưới 4 Khối (4-Card Grid)</option>
+                <option value="table">Bảng Biểu & Dữ Liệu (Data Table)</option>
+                <option value="kpis">Chỉ Số & Số Liệu KPI (Big Numbers)</option>
+                <option value="chart">Biểu Đồ & Tỷ Lệ (Native Chart Data)</option>
+                <option value="timeline">Lộ Trình & Tiến Trình (Roadmap & Timeline)</option>
+                <option value="quotes">Tiếng Nói Khách Hàng (Customer Voice Quotes)</option>
+                <option value="action_plan">Kế Hoạch & Hành Động (Action Plan & Matrix)</option>
+                <option value="conclusion">Kết Luận & Q&A (Closing Slide)</option>
+              </select>
+            </div>
+
+            <div class="studio-right-controls">
+              <button type="button" class="btn btn-sm btn-ghost" id="btnAddSlide" title="Thêm một slide mới">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Thêm Slide
+              </button>
+              <button type="button" class="btn btn-sm btn-ghost btn-danger-text" id="btnDeleteSlide" title="Xóa slide hiện tại">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                Xóa Slide
+              </button>
+              <button type="button" class="btn btn-sm btn-ghost" id="btnToggleSlideEditor" title="Mở bảng chỉnh sửa chi tiết">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                Sửa Chi Tiết
+              </button>
+            </div>
+          </div>
+
+          <!-- Studio Main Workspace: Canvas + Thumbnails Filmstrip -->
+          <div class="studio-workspace">
+            <!-- 16:9 Widescreen Slide Canvas Viewport -->
+            <div class="slide-canvas-viewport">
+              <div class="slide-canvas-16-9" id="slideCanvas">
+                <!-- Dynamically Rendered Slide DOM Content -->
+              </div>
+            </div>
+
+            <!-- Slide Editor Side Drawer (Collapsible) -->
+            <div class="slide-editor-drawer" id="slideEditorDrawer" style="display:none">
+              <div class="drawer-header">
+                <h3>Chỉnh Sửa Nội Dung Slide Hiện Tại</h3>
+                <button type="button" class="btn-close-drawer" id="btnCloseDrawer">✕</button>
+              </div>
+              <div class="drawer-body" id="slideEditorFields">
+                <!-- Dynamically generated fields for current slide -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Slide Thumbnails Filmstrip -->
+          <div class="slide-thumbnails-container">
+            <div class="thumbnails-header">
+              <span class="thumbnails-title">Danh sách các trang Slide trong bài thuyết trình:</span>
+              <span class="thumbnails-hint">Bấm vào slide để xem và chỉnh sửa</span>
+            </div>
+            <div class="slide-thumbnails-filmstrip" id="slideThumbnailsFilmstrip">
+              <!-- Dynamically populated thumbnails -->
+            </div>
+          </div>
+
+          <!-- EXPORT & DOWNLOAD BAR -->
+          <div class="slide-export-bar">
+            <div class="export-left-info">
+              <div class="export-file-icon">📊</div>
+              <div>
+                <h4 id="exportDeckFilename">Presentation_Report.pptx</h4>
+                <p class="text-muted">Định dạng Microsoft PowerPoint (.pptx) chuẩn Office • Đầy đủ Textbox, Shapes, Bảng biểu & Biểu đồ có thể chỉnh sửa</p>
+              </div>
+            </div>
+
+            <div class="export-actions-group">
+              <button type="button" class="btn btn-ghost" id="btnCopySlideDeckOutline">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+                Sao Chép Dàn Ý
+              </button>
+              <button type="button" class="btn btn-template-download" id="btnDownloadTemplatePPTX" style="display:none">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                📥 Tải File Theo Template Mẫu (.pptx)
+              </button>
+              <button type="button" class="btn btn-primary btn-large btn-download-pptx" id="btnDownloadPPTX">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                📥 Tải File PowerPoint (.pptx) Chỉnh Sửa Được
+              </button>
+            </div>
+          </div>
         </section>
       </div>
     </main>

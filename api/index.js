@@ -4,6 +4,13 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const ExcelJS = require('exceljs');
+const JSZip = require('jszip');
+const multer = require('multer');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }
+});
 
 // Dynamic getter for google-play-scraper to avoid ERR_REQUIRE_ESM on Vercel
 let gplayInstance = null;
@@ -67,7 +74,7 @@ function ensureOutputDir() {
   if (!fs.existsSync(OUTPUT_DIR)) {
     try {
       fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-    } catch (e) {}
+    } catch (e) { }
   }
 }
 ensureOutputDir();
@@ -96,6 +103,614 @@ app.post(['/api/config', '/config'], (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================
+// Document Parsing Helpers for Slide Generator
+// ============================================
+async function parsePptxBuffer(buffer, originalName) {
+  const zip = await JSZip.loadAsync(buffer);
+  const slideFiles = [];
+  zip.forEach((relativePath) => {
+    if (relativePath.match(/^ppt\/slides\/slide\d+\.xml$/i)) {
+      slideFiles.push(relativePath);
+    }
+  });
+
+  slideFiles.sort((a, b) => {
+    const numA = parseInt(a.match(/\d+/)[0], 10);
+    const numB = parseInt(b.match(/\d+/)[0], 10);
+    return numA - numB;
+  });
+
+  let fullText = '';
+  const parsedSlides = [];
+  let detectedTitle = '';
+  let detectedSubtitle = '';
+
+  for (let i = 0; i < slideFiles.length; i++) {
+    const slideXml = await zip.file(slideFiles[i]).async('text');
+    const paragraphs = [];
+    const pRegex = /<a:p[\s>]([\s\S]*?)<\/a:p>/gi;
+    let pMatch;
+    while ((pMatch = pRegex.exec(slideXml)) !== null) {
+      const pContent = pMatch[1];
+      const tRegex = /<a:t>([\s\S]*?)<\/a:t>/gi;
+      let textRun = '';
+      let tMatch;
+      while ((tMatch = tRegex.exec(pContent)) !== null) {
+        textRun += tMatch[1];
+      }
+      if (textRun.trim()) {
+        paragraphs.push(textRun.trim());
+      }
+    }
+
+    if (paragraphs.length) {
+      const title = paragraphs[0];
+      const content = paragraphs.slice(1);
+      if (i === 0) {
+        detectedTitle = title;
+        if (content.length > 0) detectedSubtitle = content[0];
+      }
+      parsedSlides.push({ slideNum: i + 1, title, content });
+      fullText += `\n--- TRANG ${i + 1}: ${title} ---\n` + (content.length ? content.map(c => `• ${c}`).join('\n') + '\n' : '');
+    }
+  }
+
+  if (!detectedTitle) {
+    detectedTitle = originalName.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+  }
+
+  return { fullText, slides: parsedSlides, slideCount: parsedSlides.length, detectedTitle, detectedSubtitle };
+}
+
+async function parseDocxBuffer(buffer, originalName) {
+  const zip = await JSZip.loadAsync(buffer);
+  const docXmlFile = zip.file('word/document.xml');
+  if (!docXmlFile) return { fullText: '', slides: [], slideCount: 0, detectedTitle: originalName };
+  const docXml = await docXmlFile.async('text');
+  const paragraphs = [];
+  const pRegex = /<w:p[\s>]([\s\S]*?)<\/w:p>/gi;
+  let pMatch;
+  while ((pMatch = pRegex.exec(docXml)) !== null) {
+    const pContent = pMatch[1];
+    const tRegex = /<w:t[\s>]([\s\S]*?)<\/w:t>/gi;
+    let textRun = '';
+    let tMatch;
+    while ((tMatch = tRegex.exec(pContent)) !== null) {
+      textRun += tMatch[1].replace(/<[^>]+>/g, '');
+    }
+    if (textRun.trim()) {
+      paragraphs.push(textRun.trim());
+    }
+  }
+  const detectedTitle = paragraphs[0] || originalName.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+  const detectedSubtitle = paragraphs[1] || '';
+  return {
+    fullText: paragraphs.join('\n\n'),
+    detectedTitle,
+    detectedSubtitle,
+    paragraphs,
+    slideCount: Math.ceil(paragraphs.length / 4)
+  };
+}
+
+async function parseExcelDocBuffer(buffer, originalName) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  let fullText = '';
+  const sheetsData = [];
+
+  workbook.worksheets.forEach((sheet) => {
+    let sheetText = `\n=== SHEET: ${sheet.name} ===\n`;
+    const headers = [];
+    const rows = [];
+    sheet.eachRow((row, rowNumber) => {
+      const rowValues = [];
+      row.eachCell((cell) => {
+        let val = cell.value;
+        if (val && typeof val === 'object' && val.result !== undefined) val = val.result;
+        if (val && typeof val === 'object' && val.text !== undefined) val = val.text;
+        rowValues.push(String(val || '').trim());
+      });
+      if (rowValues.length) {
+        if (rowNumber === 1) headers.push(...rowValues);
+        else rows.push(rowValues.join(' | '));
+      }
+    });
+    if (headers.length) sheetText += `Cột: ${headers.join(' | ')}\n`;
+    if (rows.length) sheetText += rows.slice(0, 40).join('\n') + '\n';
+    fullText += sheetText;
+    sheetsData.push({ name: sheet.name, headers, rowCount: rows.length });
+  });
+
+  const detectedTitle = originalName.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+  return { fullText, sheetsData, detectedTitle, detectedSubtitle: `Tổng hợp từ ${sheetsData.length} bảng tính Excel` };
+}
+
+// Endpoint: Parse Uploaded Document for Slide Presentation Generator
+app.post(['/api/parse-doc', '/parse-doc'], upload.single('docFile'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: 'Không tìm thấy file tài liệu nào được tải lên!' });
+    }
+
+    const originalName = file.originalname || 'document';
+    const ext = path.extname(originalName).toLowerCase();
+    let result = { success: true, fileName: originalName, fileType: ext };
+
+    if (ext === '.pptx') {
+      const parsed = await parsePptxBuffer(file.buffer, originalName);
+      result = { ...result, ...parsed };
+    } else if (ext === '.docx') {
+      const parsed = await parseDocxBuffer(file.buffer, originalName);
+      result = { ...result, ...parsed };
+    } else if (ext === '.xlsx' || ext === '.xls') {
+      const parsed = await parseExcelDocBuffer(file.buffer, originalName);
+      result = { ...result, ...parsed };
+    } else if (['.txt', '.md', '.json', '.csv'].includes(ext)) {
+      const text = file.buffer.toString('utf-8');
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      result = {
+        ...result,
+        fullText: text,
+        detectedTitle: lines[0] || originalName.replace(/\.[^/.]+$/, ''),
+        detectedSubtitle: lines[1] || '',
+        slideCount: Math.max(3, Math.ceil(lines.length / 5))
+      };
+    } else {
+      // Fallback text extraction
+      const text = file.buffer.toString('utf-8').slice(0, 10000);
+      result = {
+        ...result,
+        fullText: text,
+        detectedTitle: originalName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+        detectedSubtitle: 'Nội dung trích xuất từ tài liệu đính kèm'
+      };
+    }
+
+    console.log(`[ParseDoc] Đã trích xuất thành công: ${originalName} (${ext}) -> ${result.slideCount || 1} phần/slide`);
+    return res.json(result);
+  } catch (err) {
+    console.error('[ParseDoc] Lỗi khi đọc file:', err);
+    return res.status(500).json({ error: `Không thể đọc nội dung file: ${err.message}` });
+  }
+});
+
+// ============================================
+// PowerPoint Template Engine (.pptx Master & Layout Clone)
+// ============================================
+const templateCache = new Map();
+
+function escapeXml(unsafe) {
+  if (!unsafe) return '';
+  return String(unsafe)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+async function parsePptxTemplateMaster(buffer, originalName) {
+  const zip = await JSZip.loadAsync(buffer);
+
+  // 1. Theme colors and fonts
+  const themeFile = zip.file('ppt/theme/theme1.xml');
+  const colors = [];
+  function toOfficeSafeFont(fontName, defaultFont = 'Calibri') {
+    if (!fontName) return defaultFont;
+    const name = fontName.trim().toLowerCase();
+    if (name.includes('calibri')) return 'Calibri';
+    if (name.includes('arial')) return 'Arial';
+    if (name.includes('segoe')) return 'Segoe UI';
+    if (name.includes('tahoma')) return 'Tahoma';
+    if (name.includes('verdana')) return 'Verdana';
+    if (name.includes('times')) return 'Times New Roman';
+    if (name.includes('trebuchet')) return 'Trebuchet MS';
+    if (name.includes('georgia')) return 'Georgia';
+    if (name.includes('montserrat') || name.includes('poppins') || name.includes('outfit')) return 'Segoe UI';
+    if (name.includes('inter') || name.includes('roboto') || name.includes('open sans') || name.includes('helvetica')) return 'Calibri';
+    return defaultFont;
+  }
+
+  let headingFont = 'Segoe UI';
+  let bodyFont = 'Calibri';
+
+  if (themeFile) {
+    const xml = await themeFile.async('text');
+    const clrRegex = /<a:srgbClr val="([A-Fa-f0-9]{6})"/gi;
+    let m;
+    while ((m = clrRegex.exec(xml)) !== null) {
+      const hex = '#' + m[1].toUpperCase();
+      if (!colors.includes(hex)) colors.push(hex);
+    }
+    const majorFontMatch = xml.match(/<a:majorFont>[\s\S]*?<a:latin typeface="([^"]+)"/i);
+    if (majorFontMatch) headingFont = toOfficeSafeFont(majorFontMatch[1], 'Segoe UI');
+    const minorFontMatch = xml.match(/<a:minorFont>[\s\S]*?<a:latin typeface="([^"]+)"/i);
+    if (minorFontMatch) bodyFont = toOfficeSafeFont(minorFontMatch[1], 'Calibri');
+  }
+
+  const primaryColor = colors[0] || '#1F497D';
+  const secondaryColor = colors[2] || colors[1] || '#4F81BD';
+  const accentColor = colors[3] || colors[4] || '#C0504D';
+  const bgColor = colors[1] && colors[1].toLowerCase().includes('f') ? colors[1] : '#FFFFFF';
+  const textColor = '#1E293B';
+
+  // 2. Scan slide files for layout archetypes
+  let slideFiles = [];
+  zip.forEach((p) => {
+    if (p.match(/^ppt\/slides\/slide\d+\.xml$/i)) slideFiles.push(p);
+  });
+  if (!slideFiles.length) {
+    zip.forEach((p) => {
+      if (p.match(/^ppt\/slideLayouts\/slideLayout\d+\.xml$/i)) slideFiles.push(p);
+    });
+  }
+  slideFiles.sort((a, b) => {
+    const nA = parseInt(a.match(/\d+/)?.[0] || '0', 10);
+    const nB = parseInt(b.match(/\d+/)?.[0] || '0', 10);
+    return nA - nB;
+  });
+
+  const recognizedLayouts = [];
+  const slideXmls = [];
+
+  for (let i = 0; i < slideFiles.length; i++) {
+    const fileName = slideFiles[i];
+    const xml = await zip.file(fileName).async('text');
+    slideXmls.push({ fileName, xml });
+
+    const paragraphs = [];
+    const pRegex = /<a:p[\s>]([\s\S]*?)<\/a:p>/gi;
+    let pMatch;
+    while ((pMatch = pRegex.exec(xml)) !== null) {
+      const pContent = pMatch[1];
+      const tRegex = /<a:t>([\s\S]*?)<\/a:t>/gi;
+      let textRun = '';
+      let tMatch;
+      while ((tMatch = tRegex.exec(pContent)) !== null) {
+        textRun += tMatch[1];
+      }
+      if (textRun.trim()) paragraphs.push(textRun.trim());
+    }
+
+    // Extract text grouped by shapes
+    const shapeTexts = [];
+    const spMatches = xml.match(/<p:sp[\s>][\s\S]*?<\/p:sp>/gi) || [];
+    for (const spXml of spMatches) {
+      const pMatches = spXml.match(/<a:p[\s>][\s\S]*?<\/a:p>/gi) || [];
+      const lines = [];
+      for (const pXml of pMatches) {
+        const tMatches = pXml.match(/<a:t>([\s\S]*?)<\/a:t>/gi) || [];
+        let tRun = '';
+        for (const tm of tMatches) {
+          tRun += tm.replace(/<[^>]+>/g, '');
+        }
+        if (tRun.trim()) lines.push(tRun.trim());
+      }
+      if (lines.length) shapeTexts.push(lines);
+    }
+
+    const title = paragraphs[0] || `Slide ${i + 1}`;
+    const tLower = title.toLowerCase();
+    const hasTable = xml.includes('<a:tbl');
+    let layoutType = 'content';
+
+    if (i === 0 || tLower.includes('báo cáo') || tLower.includes('presentation') || tLower.includes('tiêu đề') || tLower.includes('chiến lược')) {
+      layoutType = 'cover';
+    } else if (tLower.includes('mục lục') || tLower.includes('agenda') || tLower.includes('tổng quan') || tLower.includes('nội dung chính')) {
+      layoutType = 'agenda';
+    } else if (hasTable) {
+      layoutType = (tLower.includes('hành động') || tLower.includes('nhiệm vụ') || tLower.includes('kế hoạch') || tLower.includes('ma trận')) ? 'action_plan' : 'table';
+    } else if (tLower.includes('lộ trình') || tLower.includes('timeline') || tLower.includes('roadmap') || tLower.includes('giai đoạn') || tLower.includes('quy trình')) {
+      layoutType = 'timeline';
+    } else if (tLower.includes('phản hồi') || tLower.includes('trích dẫn') || tLower.includes('ý kiến') || tLower.includes('voice') || tLower.includes('quotes')) {
+      layoutType = 'quotes';
+    } else if (tLower.includes('chỉ số') || tLower.includes('kpi') || tLower.includes('hiệu quả') || (paragraphs.some(p => p.includes('%') || p.includes('★')) && paragraphs.length <= 6)) {
+      layoutType = 'kpis';
+    } else if (i === slideFiles.length - 1 && (tLower.includes('kết luận') || tLower.includes('cảm ơn') || tLower.includes('thank') || tLower.includes('liên hệ'))) {
+      layoutType = 'conclusion';
+    } else {
+      // Dựa vào số lượng khối shape / cột thực tế trong template
+      const bodyShapesCount = Math.max(0, shapeTexts.length - 1);
+      if (bodyShapesCount === 2 || tLower.includes('so sánh') || tLower.includes('2 cột')) {
+        layoutType = 'cards2';
+      } else if (bodyShapesCount === 3 || tLower.includes('3 cột') || tLower.includes('trụ cột')) {
+        layoutType = 'cards3';
+      } else if (bodyShapesCount >= 4 || tLower.includes('4 cột') || tLower.includes('4 nhóm')) {
+        layoutType = 'cards4';
+      } else {
+        layoutType = 'content'; // Bố cục chuẩn: Tiêu đề + Danh sách luận điểm / Bullets
+      }
+    }
+
+    recognizedLayouts.push({
+      slideNum: i + 1,
+      slideFile: fileName,
+      layoutType,
+      sampleTitle: title,
+      hasTable,
+      columnsCount: layoutType === 'cards4' ? 4 : (layoutType === 'cards3' ? 3 : (layoutType === 'cards2' ? 2 : 1)),
+      sampleParagraphs: paragraphs.slice(0, 6)
+    });
+  }
+
+  // 3. Extract logo image if present in media
+  let logoBase64 = '';
+  const mediaFiles = [];
+  zip.forEach((p) => {
+    if (p.startsWith('ppt/media/')) mediaFiles.push(p);
+  });
+  if (mediaFiles.length > 0) {
+    try {
+      const imgBuf = await zip.file(mediaFiles[0]).async('nodebuffer');
+      const ext = path.extname(mediaFiles[0]).replace('.', '').toLowerCase() || 'png';
+      logoBase64 = `data:image/${ext === 'svg' ? 'svg+xml' : ext};base64,${imgBuf.toString('base64')}`;
+    } catch (e) { }
+  }
+
+  const templateId = `tmpl_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  templateCache.set(templateId, {
+    buffer,
+    originalName,
+    slideFiles,
+    recognizedLayouts,
+    colors: { primary: primaryColor, secondary: secondaryColor, accent: accentColor, bg: bgColor, text: textColor },
+    fonts: { headingFont, bodyFont },
+    logoBase64
+  });
+
+  return {
+    templateId,
+    fileName: originalName,
+    fileSize: buffer.length,
+    slideCount: slideFiles.length,
+    colors: { primary: primaryColor, secondary: secondaryColor, accent: accentColor, bg: bgColor, text: textColor },
+    fonts: { headingFont, bodyFont },
+    recognizedLayouts,
+    logoBase64
+  };
+}
+
+function injectContentIntoSlideXml(xml, slide) {
+  const textItems = [];
+  if (slide.badge) textItems.push(slide.badge);
+  if (slide.title) textItems.push(slide.title);
+  if (slide.subtitle) textItems.push(slide.subtitle);
+
+  if (slide.bullets && Array.isArray(slide.bullets)) {
+    slide.bullets.forEach(b => textItems.push(b));
+  }
+  if (slide.content && Array.isArray(slide.content)) {
+    slide.content.forEach(c => textItems.push(c));
+  }
+  if (slide.table) {
+    if (slide.table.headers) slide.table.headers.forEach(h => textItems.push(h));
+    if (slide.table.rows) slide.table.rows.forEach(r => (Array.isArray(r) ? r : [r]).forEach(cell => textItems.push(cell)));
+  }
+  if (slide.items) {
+    slide.items.forEach(it => {
+      textItems.push(it.title);
+      textItems.push(it.desc);
+    });
+  }
+  if (slide.stats) {
+    slide.stats.forEach(st => {
+      textItems.push(st.val);
+      textItems.push(st.label);
+      textItems.push(st.sub);
+    });
+  }
+  if (slide.cards) {
+    slide.cards.forEach(cd => {
+      textItems.push(cd.title);
+      (cd.bullets || []).forEach(b => textItems.push(b));
+    });
+  }
+  if (slide.steps) {
+    slide.steps.forEach(st => {
+      textItems.push(st.title);
+      textItems.push(st.desc);
+    });
+  }
+  if (slide.quotes) {
+    slide.quotes.forEach(q => {
+      textItems.push(q.text);
+      textItems.push(q.author);
+    });
+  }
+  if (slide.actions) {
+    slide.actions.forEach(a => {
+      textItems.push(a.task);
+      textItems.push(a.owner);
+      textItems.push(a.deadline);
+    });
+  }
+  if (slide.contacts) {
+    slide.contacts.forEach(c => textItems.push(c));
+  }
+
+  let itemIdx = 0;
+  return xml.replace(/<a:t>([\s\S]*?)<\/a:t>/g, (match) => {
+    if (itemIdx < textItems.length) {
+      const newText = escapeXml(textItems[itemIdx++]);
+      return `<a:t>${newText}</a:t>`;
+    }
+    return match;
+  });
+}
+
+async function generatePptxFromTemplateBuffer(templateBuffer, deckData) {
+  const zip = await JSZip.loadAsync(templateBuffer);
+  const slides = deckData.slides || [];
+
+  let slideFiles = [];
+  zip.forEach((p) => {
+    if (p.match(/^ppt\/slides\/slide\d+\.xml$/i)) slideFiles.push(p);
+  });
+  if (!slideFiles.length) {
+    zip.forEach((p) => {
+      if (p.match(/^ppt\/slideLayouts\/slideLayout\d+\.xml$/i)) slideFiles.push(p);
+    });
+  }
+  slideFiles.sort((a, b) => parseInt(a.match(/\d+/)?.[0] || '0', 10) - parseInt(b.match(/\d+/)?.[0] || '0', 10));
+
+  if (!slideFiles.length) {
+    throw new Error('Template PowerPoint không chứa slide nào hợp lệ!');
+  }
+
+  const templateSlideXmls = [];
+  for (const sf of slideFiles) {
+    const xml = await zip.file(sf).async('text');
+    templateSlideXmls.push({ fileName: sf, xml });
+  }
+
+  // Inject content for each slide in generated deck
+  for (let i = 0; i < slides.length; i++) {
+    const slide = slides[i];
+    let templateIdx = Math.min(i, templateSlideXmls.length - 1);
+    if (typeof slide.templateSlideIndex === 'number' && slide.templateSlideIndex >= 0 && slide.templateSlideIndex < templateSlideXmls.length) {
+      templateIdx = slide.templateSlideIndex;
+    }
+    const baseXml = templateSlideXmls[templateIdx].xml;
+    const targetFile = `ppt/slides/slide${i + 1}.xml`;
+
+    const updatedXml = injectContentIntoSlideXml(baseXml, slide);
+    zip.file(targetFile, updatedXml);
+
+    const relsFile = `ppt/slides/_rels/slide${i + 1}.xml.rels`;
+    const origRelsFile = `ppt/slides/_rels/slide${templateIdx + 1}.xml.rels`;
+    if (zip.file(origRelsFile)) {
+      const relsContent = await zip.file(origRelsFile).async('text');
+      zip.file(relsFile, relsContent);
+    }
+  }
+
+  // Remove any remaining unused slides from template
+  for (let j = slides.length + 1; j <= slideFiles.length + 10; j++) {
+    zip.remove(`ppt/slides/slide${j}.xml`);
+    zip.remove(`ppt/slides/_rels/slide${j}.xml.rels`);
+  }
+
+  // Update presentation.xml slide list
+  const presFile = zip.file('ppt/presentation.xml');
+  if (presFile) {
+    let presXml = await presFile.async('text');
+    let sldIdLst = '<p:sldIdLst>';
+    for (let i = 0; i < slides.length; i++) {
+      const sldId = 256 + i;
+      sldIdLst += `<p:sldId id="${sldId}" r:id="rId${i + 10}"/>`;
+    }
+    sldIdLst += '</p:sldIdLst>';
+
+    if (presXml.includes('<p:sldIdLst>')) {
+      presXml = presXml.replace(/<p:sldIdLst>[\s\S]*?<\/p:sldIdLst>/i, sldIdLst);
+    } else if (presXml.includes('</p:presentation>')) {
+      presXml = presXml.replace('</p:presentation>', sldIdLst + '</p:presentation>');
+    }
+    zip.file('ppt/presentation.xml', presXml);
+  }
+
+  // Update presentation.xml.rels
+  const presRelsFile = zip.file('ppt/_rels/presentation.xml.rels');
+  if (presRelsFile) {
+    let presRelsXml = await presRelsFile.async('text');
+    let relsEntries = '';
+    for (let i = 0; i < slides.length; i++) {
+      relsEntries += `<Relationship Id="rId${i + 10}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i + 1}.xml"/>\n`;
+    }
+    presRelsXml = presRelsXml.replace(/<Relationship Id="rId\d+" Type="[^"]*\/slide"[^>]*\/>/gi, '');
+    presRelsXml = presRelsXml.replace('</Relationships>', relsEntries + '</Relationships>');
+    zip.file('ppt/_rels/presentation.xml.rels', presRelsXml);
+  }
+
+  // Update [Content_Types].xml
+  const ctFile = zip.file('[Content_Types].xml');
+  if (ctFile) {
+    let ctXml = await ctFile.async('text');
+    let overrides = '';
+    for (let i = 0; i < slides.length; i++) {
+      overrides += `<Override PartName="/ppt/slides/slide${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>\n`;
+    }
+    ctXml = ctXml.replace(/<Override PartName="\/ppt\/slides\/slide\d+\.xml"[^>]*\/>/gi, '');
+    ctXml = ctXml.replace('</Types>', overrides + '</Types>');
+    zip.file('[Content_Types].xml', ctXml);
+  }
+
+  const generatedBuffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+  return generatedBuffer;
+}
+
+// Endpoint: Parse Uploaded PowerPoint Template
+app.post(['/api/template/parse', '/template/parse'], upload.single('templateFile'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: 'Vui lòng tải lên file Template PowerPoint (.pptx)!' });
+    }
+
+    const originalName = file.originalname || 'template.pptx';
+    const ext = path.extname(originalName).toLowerCase();
+    if (ext !== '.pptx') {
+      return res.status(400).json({ error: 'Định dạng file không hỗ trợ. Vui lòng tải lên file PowerPoint (.pptx)!' });
+    }
+
+    const templateInfo = await parsePptxTemplateMaster(file.buffer, originalName);
+    console.log(`[TemplateParse] Đã trích xuất Template: ${originalName} -> ${templateInfo.slideCount} slides, Theme: ${templateInfo.colors.primary}`);
+    return res.json({ success: true, ...templateInfo });
+  } catch (err) {
+    console.error('[TemplateParse] Lỗi:', err);
+    return res.status(500).json({ error: `Không thể đọc template: ${err.message}` });
+  }
+});
+
+// Endpoint: Generate PowerPoint using Template
+app.post(['/api/template/generate', '/template/generate'], upload.single('templateFile'), async (req, res) => {
+  try {
+    let templateBuffer = null;
+    let originalName = 'presentation.pptx';
+    const templateId = req.body.templateId;
+
+    if (templateId && templateCache.has(templateId)) {
+      const cached = templateCache.get(templateId);
+      templateBuffer = cached.buffer;
+      originalName = cached.originalName;
+    } else if (req.file) {
+      templateBuffer = req.file.buffer;
+      originalName = req.file.originalname;
+    }
+
+    if (!templateBuffer) {
+      return res.status(400).json({ error: 'Không tìm thấy template PowerPoint mẫu hợp lệ để xuất!' });
+    }
+
+    let deckData = req.body.deckData;
+    if (typeof deckData === 'string') {
+      try { deckData = JSON.parse(deckData); } catch (e) { }
+    }
+
+    if (!deckData || !deckData.slides) {
+      return res.status(400).json({ error: 'Dữ liệu bài thuyết trình không hợp lệ!' });
+    }
+
+    const outputBuffer = await generatePptxFromTemplateBuffer(templateBuffer, deckData);
+    const safeTitle = (deckData.title || 'Presentation').replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1EA0-\u1EF9]/g, '_').slice(0, 30);
+    const exportFileName = `Slide_Template_${safeTitle}_${Date.now()}.pptx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(exportFileName)}"`);
+    res.json({
+      success: true,
+      fileName: exportFileName,
+      base64: outputBuffer.toString('base64')
+    });
+  } catch (err) {
+    console.error('[TemplateGen] Lỗi:', err);
+    return res.status(500).json({ error: `Lỗi khi xuất slide theo template: ${err.message}` });
   }
 });
 
@@ -235,7 +850,7 @@ app.post(['/api/scrape/android', '/scrape/android'], async (req, res) => {
     // Generate Excel
     const fileName = 'android_rating_comment.xlsx';
     const { filePath, base64 } = await generateExcel(allReviews, fileName, appId, 'Google Play');
-    
+
     const avgRating = allReviews.length > 0 ? (allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length) : 0;
     const ratingCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     allReviews.forEach(r => { if (ratingCounts[r.rating] !== undefined) ratingCounts[r.rating]++; });
@@ -283,7 +898,7 @@ function fetchJsonWithRetry(url, headers, maxRetries = 3) {
           let d = '';
           res.on('data', c => d += c);
           res.on('end', () => {
-            try { r(JSON.parse(d)); } catch(e) { r(null); }
+            try { r(JSON.parse(d)); } catch (e) { r(null); }
           });
         }).on('error', () => r(null));
       });
@@ -313,7 +928,7 @@ async function fetchAppStoreReviewsFromAPI(country, appId, startDate, endDate, m
 
   const fetchSinglePage = (offset, retries = 2) => {
     const url = `https://apps.apple.com/api/apps/v1/catalog/${targetCountry}/apps/${appId}/reviews?platform=iphone&l=vi&limit=${limit}&offset=${offset}`;
-    
+
     const getWithRedirect = (targetUrl, depth = 0) => {
       return new Promise((resolve) => {
         if (depth > 5) return resolve([]);
@@ -409,7 +1024,7 @@ function fetchAppStoreReviewsFromWeb(country, appId, fullUrl) {
       const json = JSON.parse(match[1]);
       const reviews = [];
       const visited = new Set();
-      
+
       function walk(obj) {
         if (!obj || typeof obj !== 'object' || visited.has(obj)) return;
         visited.add(obj);
@@ -431,7 +1046,7 @@ function fetchAppStoreReviewsFromWeb(country, appId, fullUrl) {
           if (obj[k] && typeof obj[k] === 'object') walk(obj[k]);
         }
       }
-      
+
       walk(json);
       resolve(reviews);
     } catch (err) {
@@ -444,7 +1059,7 @@ function parseFlexibleDate(dateStr) {
   if (!dateStr) return null;
   if (dateStr instanceof Date) return dateStr;
   const str = String(dateStr).trim();
-  
+
   // DD/MM/YYYY format check
   const ddmmyyyy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (ddmmyyyy) {
@@ -462,7 +1077,7 @@ function parseFlexibleDate(dateStr) {
     const day = parseInt(yyyymmdd[3], 10);
     return new Date(year, month, day, 0, 0, 0, 0);
   }
-  
+
   const d = new Date(str);
   return isNaN(d.getTime()) ? null : d;
 }
@@ -520,7 +1135,7 @@ app.post(['/api/scrape/ios', '/scrape/ios'], async (req, res) => {
     // Generate Excel
     const fileName = 'ios_rating_comment.xlsx';
     const { filePath, base64 } = await generateExcel(allReviews, fileName, appId, 'App Store');
-    
+
     const avgRating = allReviews.length > 0 ? (allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length) : 0;
     const ratingCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     allReviews.forEach(r => { if (ratingCounts[r.rating] !== undefined) ratingCounts[r.rating]++; });
@@ -573,7 +1188,7 @@ app.post(['/api/scrape/both', '/scrape/both'], async (req, res) => {
           if (targetUrlAndroid.includes('gl=')) opts.country = targetUrlAndroid.match(/gl=([a-zA-Z]+)/)[1];
           if (targetUrlAndroid.includes('hl=')) opts.lang = targetUrlAndroid.match(/hl=([a-zA-Z]+)/)[1];
           if (nextToken) opts.nextPaginationToken = nextToken;
-          
+
           const result = await gplay.reviews(opts);
           const reviews = result.data || [];
           nextToken = result.nextPaginationToken;
@@ -798,7 +1413,7 @@ function analyzeSummaryTopics(reviews) {
 
     for (const td of topicDefs) {
       if (td.minRating && r.rating < td.minRating) continue;
-      
+
       const hasKw = td.keywords.some(kw => text.includes(kw));
       if (hasKw) {
         matched = true;
@@ -919,7 +1534,7 @@ async function generateCombinedExcel(androidReviews, iosReviews, summaryTopics, 
     row.getCell('count').alignment = { horizontal: 'center', vertical: 'top' };
     row.getCell('count').font = { bold: true };
     row.getCell('sentiment').alignment = { horizontal: 'center', vertical: 'top' };
-    
+
     if (item.sentiment.includes('Tốt') && !item.sentiment.includes('Chưa')) {
       row.getCell('sentiment').font = { bold: true, color: { argb: 'FF059669' } };
     } else {
@@ -1077,7 +1692,7 @@ async function generateExcel(reviews, fileName, appId, storeName) {
     const ratingCell = row.getCell('rating');
     ratingCell.alignment = { horizontal: 'center' };
     ratingCell.numFmt = '0.0';
-    
+
     if (review.rating >= 4) {
       ratingCell.font = { bold: true, color: { argb: 'FF0D904F' } };
     } else if (review.rating >= 3) {
@@ -1235,8 +1850,6 @@ app.post(['/api/app-info/ios', '/app-info/ios'], async (req, res) => {
 // ============================================
 // RATING AI & DICTIONARY CLASSIFIER MODULE
 // ============================================
-const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage() });
 
 function extractCellText(cell) {
   if (!cell || cell.value === null || cell.value === undefined) return '';

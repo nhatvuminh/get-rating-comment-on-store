@@ -1,5 +1,7 @@
 node_modules/
 output/
 config.json
+.env
 .DS_Store
 *.log
+scratch/

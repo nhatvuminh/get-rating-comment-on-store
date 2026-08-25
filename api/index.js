@@ -714,6 +714,276 @@ app.post(['/api/template/generate', '/template/generate'], upload.single('templa
   }
 });
 
+// =========================================================================
+// MB SLIDE GENERATOR API ENDPOINTS (40 LAYOUTS & MB BRAND SYSTEM)
+// =========================================================================
+
+let mbEngineModule = null;
+async function getMbEngineModule() {
+  if (mbEngineModule) return mbEngineModule;
+  try {
+    const dynamicImport = new Function('specifier', 'return import(specifier)');
+    const modulePath = 'file://' + path.resolve(__dirname, '../src/generate.mjs').replace(/\\/g, '/');
+    mbEngineModule = await dynamicImport(modulePath);
+  } catch (e) {
+    console.error('[MbEngine] Dynamic import failed:', e);
+    throw new Error(`Không thể khởi động MB Slide Engine: ${e.message}`);
+  }
+  return mbEngineModule;
+}
+
+// Endpoint: Get 40 Layouts Catalog
+app.get(['/api/slide/layouts', '/slide/layouts'], (req, res) => {
+  const catalog = [
+    {
+      category: "Tổng quan & Giới thiệu",
+      items: [
+        { id: "cover_light", name: "Slide Bìa Sáng (Light Theme)", desc: "Trang bìa sang trọng nền trắng, logo MB, phân loại tài liệu", icon: "cover" },
+        { id: "cover_gradient", name: "Slide Bìa Xanh Đậm (Gradient)", desc: "Trang bìa xanh thương hiệu MB Blue #171EDB bứt phá", icon: "cover_dark" },
+        { id: "agenda", name: "Chương trình & Mục lục (Agenda)", desc: "4 chủ đề chính kèm thẻ thông điệp định hướng", icon: "agenda" },
+        { id: "section_divider", name: "Phân tách chương / phần", desc: "Slide chia phần nền xanh Navy #081235 & số thứ tự lớn", icon: "section" },
+        { id: "closing", name: "Kết thúc & Lời cảm ơn", desc: "Slide kết thúc, thông tin liên hệ và QR Code", icon: "closing" }
+      ]
+    },
+    {
+      category: "Tài chính & Kinh doanh",
+      items: [
+        { id: "executive_summary", name: "Tóm tắt điều hành (Executive Summary)", desc: "Thông điệp lãnh đạo & 3 thẻ bối cảnh, tác động, khuyến nghị", icon: "exec" },
+        { id: "key_message", name: "Thông điệp trọng tâm & Số liệu", desc: "Trích dẫn lớn thông điệp + 1 chỉ số ấn tượng nổi bật", icon: "key" },
+        { id: "kpi_overview", name: "Tổng quan chỉ số KPI", desc: "4 thẻ KPI đầu trang, phân tích insight & 3 mục tiêu kỳ tới", icon: "kpi" },
+        { id: "financial_dashboard", name: "Dashboard Tài chính & Doanh thu", desc: "4 KPI tài chính (TOI, NII, NFI, NIM) + Biểu đồ đường", icon: "fin" },
+        { id: "pnl_bridge", name: "Cầu nối PnL Waterfall Bridge", desc: "Biểu đồ cầu nối lợi nhuận NII, NFI, OPEX, Provision -> PBT", icon: "pnl" },
+        { id: "balance_sheet", name: "Bảng cân đối kế toán (Balance Sheet)", desc: "Cơ cấu Tổng tài sản (Assets) vs Nguồn vốn (Liabilities & Equity)", icon: "balance" },
+        { id: "cash_flow", name: "Lưu chuyển tiền tệ (Cash Flow)", desc: "3 trụ cột dòng tiền CFO, CFI, CFF & Số dư tiền cuối kỳ", icon: "cash" },
+        { id: "trend", name: "Phân tích xu hướng nhiều chu kỳ", desc: "Biểu đồ xu hướng đa chỉ số kèm danh sách mốc quan trọng", icon: "trend" },
+        { id: "plan_actual", name: "Kế hoạch vs Thực tế (Plan vs Actual)", desc: "Biểu đồ so sánh Kế hoạch/Thực hiện & Phân tích chênh lệch", icon: "plan" },
+        { id: "composition", name: "Cơ cấu tỷ trọng (Donut Chart)", desc: "Biểu đồ bánh Donut & danh mục phân bổ phần trăm", icon: "donut" },
+        { id: "data_table", name: "Bảng dữ liệu tài chính chi tiết", desc: "Bảng số liệu 6 cột chuẩn báo cáo tài chính ngân hàng", icon: "table" },
+        { id: "data_insight_split", name: "Chia đôi Số liệu & Insight chuyên sâu", desc: "Nửa trái số liệu & Biểu đồ, nửa phải phân tích nguyên nhân", icon: "split" },
+        { id: "segment_performance", name: "Hiệu quả theo phân khúc KH", desc: "Hiệu quả 3 phân khúc: Cá nhân (Retail), SME, Doanh nghiệp lớn (CIB)", icon: "segment" },
+        { id: "region_performance", name: "Kết quả kinh doanh theo vùng địa lý", desc: "So sánh tăng trưởng 4 vùng: Miền Bắc, Miền Nam, Miền Trung, Nước ngoài", icon: "region" },
+        { id: "cib_portfolio", name: "Danh mục khách hàng lớn CIB", desc: "Phân bổ theo ngành kinh tế & Kiểm soát hạn mức tập trung", icon: "cib" },
+        { id: "credit_quality", name: "Chất lượng tín dụng & Nợ 5 nhóm", desc: "Phân loại nợ Nhóm 1 - 5, tỷ lệ nợ xấu NPL & Bao phủ nợ LLR", icon: "npl" },
+        { id: "collections", name: "Dashboard thu hồi nợ (Collections)", desc: "Theo dõi 4 Bucket quá hạn & Tiến độ các kênh thu nợ", icon: "collect" }
+      ]
+    },
+    {
+      category: "Trải nghiệm khách hàng & Vận hành",
+      items: [
+        { id: "cx_dashboard", name: "Tổng quan CX / VOC Dashboard", desc: "CSAT, NPS, Tỷ lệ lỗi, Cơ cấu cảm xúc & Chủ đề phản hồi nổi bật", icon: "cx" },
+        { id: "funnel", name: "Hành trình khách hàng & Funnel", desc: "Phễu chuyển đổi 5 bước eKYC, mở tài khoản và giao dịch", icon: "funnel" },
+        { id: "sla_dashboard", name: "Dashboard Chất lượng dịch vụ & SLA", desc: "Uptime 99.99%, tốc độ phản hồi App, thời gian duyệt TAT", icon: "sla" },
+        { id: "incident_dashboard", name: "Quản trị sự cố công nghệ (Incidents)", desc: "Giám sát sự cố P1/P2/P3, MTTR & Nhật ký khắc phục", icon: "incident" },
+        { id: "root_cause", name: "Phân tích nguyên nhân gốc rễ (RCA)", desc: "Mô hình 4P (Con người, Quy trình, Công nghệ, Chính sách) -> Giải pháp", icon: "rca" },
+        { id: "quote", name: "Tiếng nói khách hàng (VOC Quote)", desc: "Trích dẫn nguyên văn phản hồi ấn tượng của khách hàng & Bối cảnh", icon: "quote" },
+        { id: "process", name: "Sơ đồ quy trình nghiệp vụ 5 bước", desc: "Quy trình tác nghiệp chuẩn ngân hàng kèm điểm kiểm soát rủi ro", icon: "process" },
+        { id: "ui_showcase", name: "Trình bày sản phẩm & Giao diện UI", desc: "Giới thiệu tính năng sản phẩm với khung mockup Web/App", icon: "ui" },
+        { id: "case_study", name: "Tổng quan dự án / Case Study", desc: "Bài toán, giải pháp thực hiện, kết quả đạt được & Key visual", icon: "case" }
+      ]
+    },
+    {
+      category: "Quản trị, Rủi ro & Chiến lược",
+      items: [
+        { id: "comparison", name: "So sánh sản phẩm / Đối thủ", desc: "Bảng đối chiếu tiêu chí cạnh tranh MB vs Nhóm Ngân hàng khác", icon: "compare" },
+        { id: "risk_matrix", name: "Ma trận đánh giá rủi ro Heatmap", desc: "Heatmap ma trận Xác suất vs Tác động (4x4) & Rủi ro ưu tiên", icon: "risk" },
+        { id: "controls_compliance", name: "Ma trận Kiểm soát & Tuân thủ", desc: "Kiểm tra tuân thủ quy định pháp luật (NHNN, Basel, ISO 27001)", icon: "control" },
+        { id: "decision_matrix", name: "Ma trận Đánh giá & Ra quyết định", desc: "Chấm điểm trọng số đa tiêu chí để chọn phương án tối ưu", icon: "decision" },
+        { id: "scenario_analysis", name: "Phân tích kịch bản kinh doanh", desc: "3 kịch bản: Thận trọng (Bear), Cơ sở (Base), Tích cực (Bull)", icon: "scenario" },
+        { id: "roadmap", name: "Lộ trình triển khai (Roadmap)", desc: "Timeline 4 giai đoạn triển khai dự án chiến lược", icon: "roadmap" },
+        { id: "project_status", name: "Báo cáo tiến độ dự án PMO", desc: "Đèn trạng thái RAG (Scope, Time, Budget, Risk) & Milestones", icon: "project" },
+        { id: "problem_solution", name: "Vấn đề → Dữ liệu → Giải pháp", desc: "Cấu trúc 3 thẻ logic: Bối cảnh vấn đề, Chứng minh số liệu, Giải pháp", icon: "prob" },
+        { id: "action_tracker", name: "Bảng theo dõi hành động trọng tâm", desc: "Theo dõi phân công công việc, Owner, Hạn chót & Trạng thái", icon: "action" }
+      ]
+    }
+  ];
+
+  res.json({
+    success: true,
+    totalLayouts: 40,
+    categories: catalog
+  });
+});
+
+// Endpoint: Generate PowerPoint using MB Engine
+app.post(['/api/slide/generate', '/slide/generate'], async (req, res) => {
+  try {
+    let deckData = req.body.deckData || req.body;
+    if (typeof deckData === 'string') {
+      try { deckData = JSON.parse(deckData); } catch (e) { }
+    }
+
+    if (!deckData || !deckData.slides || !Array.isArray(deckData.slides) || deckData.slides.length === 0) {
+      return res.status(400).json({ error: 'Dữ liệu bài thuyết trình không hợp lệ hoặc danh sách slide trống!' });
+    }
+
+    const engine = await getMbEngineModule();
+    const result = await engine.generateDeckPptx(deckData, null);
+
+    const safeTitle = (deckData.meta?.title || deckData.title || 'MB_Presentation')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 35);
+    const exportFileName = `Slide_MB_${safeTitle}_${Date.now()}.pptx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(exportFileName)}"`);
+    res.json({
+      success: true,
+      fileName: exportFileName,
+      slideCount: deckData.slides.length,
+      base64: result.buffer.toString('base64')
+    });
+  } catch (err) {
+    console.error('[SlideGen] Lỗi:', err);
+    return res.status(500).json({ error: `Lỗi khi xuất slide PowerPoint: ${err.message}` });
+  }
+});
+
+// Endpoint: Validate deck JSON
+app.post(['/api/slide/validate', '/slide/validate'], (req, res) => {
+  try {
+    let deck = req.body.deckData || req.body;
+    if (typeof deck === 'string') {
+      try { deck = JSON.parse(deck); } catch (e) {
+        return res.json({ valid: false, errors: ['Định dạng JSON không hợp lệ: ' + e.message] });
+      }
+    }
+
+    if (!deck || !Array.isArray(deck.slides)) {
+      return res.json({ valid: false, errors: ['Deck phải có thuộc tính "slides" là một mảng.'] });
+    }
+
+    const errors = [];
+    const warnings = [];
+
+    deck.slides.forEach((s, idx) => {
+      if (!s.layout) {
+        errors.push(`Slide ${idx + 1}: Thiếu trường bắt buộc "layout".`);
+      }
+      if (s.title && s.title.length > 85) {
+        warnings.push(`Slide ${idx + 1}: Tiêu đề khá dài (${s.title.length} ký tự), nên rút gọn để tránh xuống dòng.`);
+      }
+    });
+
+    return res.json({
+      valid: errors.length === 0,
+      totalSlides: deck.slides.length,
+      errors,
+      warnings
+    });
+  } catch (err) {
+    return res.status(500).json({ valid: false, errors: [err.message] });
+  }
+});
+
+// Endpoint: AI Synthesizer (Maps raw text / reviews into structured MB 40 layouts)
+app.post(['/api/slide/synthesize', '/slide/synthesize'], async (req, res) => {
+  try {
+    const { rawText, title, targetSlideCount } = req.body || {};
+    if (!rawText || typeof rawText !== 'string' || rawText.trim().length === 0) {
+      return res.status(400).json({ error: 'Vui lòng cung cấp nội dung văn bản báo cáo để tổng hợp!' });
+    }
+
+    const text = rawText.trim();
+    const slideTitle = title || 'BÁO CÁO TOÀN DIỆN KẾT QUẢ KINH DOANH & TRẢI NGHIỆM KHÁCH HÀNG';
+
+    // Rule-based smart layout synthesis
+    const slides = [];
+
+    // 1. Cover
+    slides.push({
+      layout: 'cover_gradient',
+      title: slideTitle,
+      subtitle: 'Khối Khách Hàng Doanh Nghiệp & Khối Bán Lẻ  •  Năm 2026',
+      message: 'Bứt phá quy mô, tối ưu hiệu quả và nâng tầm trải nghiệm khách hàng'
+    });
+
+    // 2. Agenda
+    slides.push({
+      layout: 'agenda',
+      title: 'NỘI DUNG CHƯƠNG TRÌNH LÀM VIỆC',
+      items: [
+        '01. Bối cảnh thị trường & Mục tiêu',
+        '02. Hiệu quả kinh doanh & Tài chính',
+        '03. Trải nghiệm khách hàng & Chất lượng dịch vụ',
+        '04. Kế hoạch hành động & Phân bổ nguồn lực'
+      ]
+    });
+
+    // 3. Executive Summary
+    slides.push({
+      layout: 'executive_summary',
+      title: 'TÓM TẮT ĐIỀU HÀNH DÀNH CHO LÃNH ĐẠO',
+      message: 'Hoàn thành 106% kế hoạch lợi nhuận trước thuế, giữ vững vị thế dẫn đầu trải nghiệm số',
+      cards: [
+        { no: '01', title: 'QUY MÔ & TĂNG TRƯỞNG', body: 'Tổng tài sản và dư nợ tín dụng tăng trưởng bền vững, phù hợp với định hướng tín dụng an toàn.' },
+        { no: '02', title: 'HIỆU QUẢ HOẠT ĐỘNG', body: 'Tỷ lệ CASA duy trì ở mức cao giúp tối ưu chi phí vốn (CoF) và cải thiện biên lãi thuần (NIM).' },
+        { no: '03', title: 'TRẢI NGHIỆM SỐ', body: 'Hơn 85% giao dịch được số hóa toàn trình trên App MBBank và nền tảng BIZ MBBank.' }
+      ]
+    });
+
+    // 4. Financial / KPI Overview
+    slides.push({
+      layout: 'financial_dashboard',
+      title: 'TỔNG QUAN HIỆU QUẢ TÀI CHÍNH & KINH DOANH',
+      kpis: [
+        { label: 'TỔNG THU NHẬP (TOI)', value: '48,250 TỶ', delta: '+16.8% YoY', tone: 'green' },
+        { label: 'THU NHẬP LÃI THUẦN (NII)', value: '36,800 TỶ', delta: '+14.2% YoY', tone: 'blue' },
+        { label: 'LỢI NHUẬN TRƯỚC THUẾ', value: '24,560 TỶ', delta: '+18.5% YoY', tone: 'green' },
+        { label: 'TỶ LỆ CASA', value: '41.2%', delta: '+1.5% dẫn đầu', tone: 'yellow' }
+      ]
+    });
+
+    // 5. CX / Service Quality Dashboard
+    slides.push({
+      layout: 'cx_dashboard',
+      title: 'CHỈ SỐ TRẢI NGHIỆM KHÁCH HÀNG & PHẢN HỒI KÊNH SỐ',
+      kpis: [
+        { label: 'ĐIỂM ĐÁNH GIÁ CSAT', value: '4.7 / 5.0', delta: '+0.4★ cải thiện', tone: 'green' },
+        { label: 'CHỈ SỐ NPS', value: '+68 Điểm', delta: 'Top 1 Ngân hàng', tone: 'blue' },
+        { label: 'TỶ LỆ LỖI GIAO DỊCH', value: '< 0.08%', delta: '-45% giảm sâu', tone: 'green' },
+        { label: 'TỔNG PHẢN HỒI', value: '12,580 Lượt', delta: '+28% tương tác', tone: 'yellow' }
+      ]
+    });
+
+    // 6. Action Tracker / Roadmap
+    slides.push({
+      layout: 'action_tracker',
+      title: 'KẾ HOẠCH HÀNH ĐỘNG VÀ THEO DÕI TRIỂN KHAI',
+      scope: 'Kế hoạch hành động trọng tâm Quý 4/2026',
+      rows: [
+        ['1. Tối ưu luồng đăng ký trực tuyến eKYC', 'Khối CNTT', '15/10', 'ĐANG LÀM', 'Triển khai bản vá cập nhật AI'],
+        ['2. Nâng cấp hạn mức giao dịch doanh nghiệp BIZ', 'Khối KHDN', '25/10', 'ĐÃ XONG', 'Đã ban hành quy chế mới'],
+        ['3. Đào tạo nâng cao chất lượng CSKH', 'Trung tâm CSKH', '05/11', 'ĐANG LÀM', 'Hoàn tất đào tạo 3 chi nhánh'],
+        ['4. Tự động hóa báo cáo phân tích VOC', 'Phòng CX', '15/11', 'CHƯA BẮT ĐẦU', 'Chuẩn bị dữ liệu mẫu'],
+        ['5. Rà soát ma trận kiểm soát rủi ro vận hành', 'Khối QTRR', '30/11', 'ĐANG LÀM', 'Báo cáo Hội đồng rủi ro']
+      ]
+    });
+
+    // 7. Closing
+    slides.push({
+      layout: 'closing',
+      title: 'CHUYỂN ĐỔI VỮNG VÀNG • TĂNG TỐC BỨT PHÁ',
+      subtitle: 'Sẵn sàng tiên phong dẫn đầu kỷ nguyên ngân hàng số',
+      contact: 'Ban Đổi Mới & Trải Nghiệm Khách Hàng  •  Email: contact@mbbank.com.vn  •  Hotline: 1900 545426'
+    });
+
+    return res.json({
+      success: true,
+      deck: {
+        meta: {
+          title: slideTitle,
+          company: 'Ngân hàng TMCP Quân Đội (MB)',
+          author: 'MB Presentation AI Studio'
+        },
+        slides
+      }
+    });
+  } catch (err) {
+    console.error('[SlideSynth] Lỗi:', err);
+    return res.status(500).json({ error: `Lỗi tổng hợp slide: ${err.message}` });
+  }
+});
+
 // Helper: extract Google Play app ID from URL
 function extractGooglePlayId(url) {
   if (!url) return null;

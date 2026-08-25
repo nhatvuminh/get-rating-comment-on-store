@@ -1343,23 +1343,24 @@ function renderAIResults(data) {
 
 // Brand Kit Default State
 let brandKit = {
-  primaryColor: '#141ED2',
-  secondaryColor: '#7B5FFF',
-  accentColor: '#12B7B7',
+  primaryColor: '#171EDB',
+  secondaryColor: '#F50912',
+  accentColor: '#081235',
   bgColor: '#FFFFFF',
-  textColor: '#192D39',
+  textColor: '#081235',
   headingFont: 'Segoe UI',
   bodyFont: 'Calibri',
-  brandName: 'Digital Enterprise',
-  presenterName: 'Ban Đổi Mới & Trải Nghiệm Khách Hàng',
-  slogan: 'Phát Triển Bền Vững & Lấy Khách Hàng Làm Trung Tâm',
-  footerText: 'Báo cáo chiến lược & Phân tích trải nghiệm | Confidential',
+  brandName: 'Ngân hàng TMCP Quân Đội (MB)',
+  presenterName: 'Khối Khách Hàng Doanh Nghiệp & Khối Bán Lẻ',
+  slogan: 'Vững Vàng Nền Tảng • Tăng Tốc Bứt Phá',
+  footerText: 'Báo cáo chiến lược MB Bank | Confidential',
   logoDataUrl: '',
   logoPosition: 'top-right',
   logoSize: 'medium'
 };
 
 const BRAND_PRESETS = {
+  mbbank: { primary: '#171EDB', secondary: '#F50912', accent: '#081235', bg: '#FFFFFF', text: '#081235' },
   modernblue: { primary: '#141ED2', secondary: '#7B5FFF', accent: '#12B7B7', bg: '#FFFFFF', text: '#192D39' },
   tech: { primary: '#4F46E5', secondary: '#06B6D4', accent: '#10B981', bg: '#0F172A', text: '#F8FAFC' },
   corporate: { primary: '#1E3A8A', secondary: '#3B82F6', accent: '#F59E0B', bg: '#F8FAFC', text: '#1E293B' },
@@ -3011,6 +3012,118 @@ function renderCurrentSlide() {
         </div>
       </div>
     `;
+  } else if (slide.layout === 'cover_light' || slide.layout === 'cover_gradient') {
+    const isDark = slide.layout === 'cover_gradient';
+    const bgCol = isDark ? '#171EDB' : '#FFFFFF';
+    const textCol = isDark ? '#FFFFFF' : '#081235';
+    bodyHtml = `
+      <div class="slide-layout-cover" style="background: ${bgCol}; color: ${textCol}; height: 100%; border-radius: 12px; padding: 36px 40px; position: relative;">
+        <div style="font-size: 0.95rem; font-weight: 800; color: ${isDark ? '#F50912' : '#171EDB'}; margin-bottom: 12px; letter-spacing: 0.05em;">★ MB FINANCE & BANKING PRESENTATION</div>
+        <h1 class="cover-main-title" contenteditable="true" data-field="title" style="font-family: '${brandKit.headingFont}', sans-serif; color: ${textCol}; font-size: 2.2rem; margin-bottom: 12px;">${escapeHtml(slide.title || '')}</h1>
+        <p class="cover-main-subtitle" contenteditable="true" data-field="subtitle" style="color: ${textCol}cc; font-size: 1.15rem; margin-bottom: 24px;">${escapeHtml(slide.subtitle || '')}</p>
+        ${slide.message ? `<div style="padding: 12px 18px; background: rgba(255,255,255,0.12); border-left: 4px solid #F50912; border-radius: 6px; font-size: 0.95rem; max-width: 650px;">${escapeHtml(slide.message)}</div>` : ''}
+        <div class="cover-meta-row" style="position: absolute; bottom: 25px; left: 40px; right: 40px; border-top: 1px solid ${textCol}25; padding-top: 12px; display: flex; justify-content: space-between; font-size: 0.85rem; opacity: 0.85;">
+          <span>🏢 <strong>Ngân hàng TMCP Quân Đội (MB)</strong></span>
+          <span>📅 ${new Date().getFullYear()}</span>
+          <span>🔒 Confidential / Bảo Mật</span>
+        </div>
+      </div>
+    `;
+  } else if (slide.layout === 'executive_summary') {
+    const cards = slide.cards || [
+      { no: '01', title: 'BỐI CẢNH & TỔNG QUAN', body: 'Quy mô tài sản và các chỉ tiêu kinh doanh tăng trưởng bền vững.' },
+      { no: '02', title: 'TÁC ĐỘNG CHIẾN LƯỢC', body: 'Tối ưu hóa chi phí vốn CASA và mở rộng hệ sinh thái khách hàng số.' },
+      { no: '03', title: 'HÀNH ĐỘNG & KHUYẾN NGHỊ', body: 'Tập trung các mốc tiến độ then chốt và kiểm soát an toàn vốn.' }
+    ];
+    bodyHtml = `
+      <div class="slide-layout-exec" style="display: flex; flex-direction: column; gap: 14px; height: 100%;">
+        ${slide.message ? `
+          <div style="background: rgba(23,30,219,0.1); border-left: 4px solid #171EDB; border-radius: 8px; padding: 12px 16px;">
+            <h4 style="color: #171EDB; font-size: 1.05rem; font-weight: 800; margin-bottom: 2px;">${escapeHtml(slide.message)}</h4>
+            <p style="font-size: 0.82rem; opacity: 0.85;">Tóm tắt thông điệp cốt lõi dành cho Hội đồng Quản trị & Ban Tổng Giám đốc</p>
+          </div>
+        ` : ''}
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; flex: 1;">
+          ${cards.map((c, i) => `
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid ${brandKit.primaryColor}30; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <span style="font-size: 1.3rem; font-weight: 900; color: ${i === 2 ? '#F50912' : '#171EDB'}; font-family: '${brandKit.headingFont}';">${c.no || ('0' + (i+1))}</span>
+                <h4 style="font-size: 0.95rem; font-weight: 700; color: ${brandKit.textColor}; margin: 6px 0 8px 0;">${escapeHtml(c.title)}</h4>
+                <p style="font-size: 0.82rem; line-height: 1.45; opacity: 0.85;">${escapeHtml(c.body)}</p>
+              </div>
+              <div style="height: 3px; background: ${i === 2 ? '#F50912' : '#171EDB'}; width: 45px; margin-top: 10px; border-radius: 2px;"></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  } else if (slide.layout === 'pnl_bridge' || slide.layout === 'financial_dashboard' || slide.layout === 'balance_sheet' || slide.layout === 'cash_flow') {
+    bodyHtml = `
+      <div class="slide-layout-finance" style="display: flex; flex-direction: column; gap: 14px; height: 100%;">
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+          ${(slide.kpis || [
+            { label: 'TỔNG THU NHẬP (TOI)', value: '48,250 TỶ', delta: '+16.8% YoY', tone: 'green' },
+            { label: 'THU NHẬP LÃI THUẦN (NII)', value: '36,800 TỶ', delta: '+14.2% YoY', tone: 'blue' },
+            { label: 'LỢI NHUẬN TRƯỚC THUẾ', value: '24,560 TỶ', delta: '+18.5% YoY', tone: 'green' },
+            { label: 'TỶ LỆ CASA', value: '41.2%', delta: '+1.5% Top 1', tone: 'yellow' }
+          ]).map(k => `
+            <div style="background: rgba(255,255,255,0.05); border: 1px solid ${brandKit.primaryColor}30; border-radius: 8px; padding: 10px 12px;">
+              <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted);">${escapeHtml(k.label)}</div>
+              <div style="font-size: 1.25rem; font-weight: 900; color: ${brandKit.textColor}; font-family: '${brandKit.headingFont}'; margin: 2px 0;">${escapeHtml(k.value)}</div>
+              <div style="font-size: 0.72rem; font-weight: 700; color: ${k.tone === 'green' ? '#10b981' : k.tone === 'red' ? '#ef4444' : '#6366f1'};">${escapeHtml(k.delta)}</div>
+            </div>
+          `).join('')}
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid ${brandKit.primaryColor}25; border-radius: 10px; padding: 14px; flex: 1; display: flex; flex-direction: column; justify-content: center;">
+          <h4 style="font-size: 0.9rem; font-weight: 700; color: ${brandKit.secondaryColor}; margin-bottom: 8px;">📊 Biểu đồ & Cầu Nối Số Liệu Tài Chính Chi Tiết</h4>
+          <p style="font-size: 0.82rem; opacity: 0.85; line-height: 1.5;">${escapeHtml(slide.summary || slide.subtitle || 'Dữ liệu được kết xuất trực tiếp bằng Native PowerPoint Chart & Table khi xuất file.')}</p>
+        </div>
+      </div>
+    `;
+  } else if (slide.layout === 'sla_dashboard' || slide.layout === 'incident_dashboard' || slide.layout === 'cx_dashboard' || slide.layout === 'credit_quality') {
+    bodyHtml = `
+      <div class="slide-layout-dash" style="display: flex; flex-direction: column; gap: 12px; height: 100%;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+          <div style="background: rgba(16,185,129,0.1); border: 1px solid #10b98140; border-radius: 8px; padding: 12px;">
+            <span style="font-size: 0.75rem; font-weight: 700; color: #10b981;">CORE UPTIME / CHẤT LƯỢNG</span>
+            <div style="font-size: 1.4rem; font-weight: 900; color: #10b981; font-family: '${brandKit.headingFont}';">99.99%</div>
+            <span style="font-size: 0.72rem; opacity: 0.8;">Đạt cam kết SLA 24/7</span>
+          </div>
+          <div style="background: rgba(99,102,241,0.1); border: 1px solid #6366f140; border-radius: 8px; padding: 12px;">
+            <span style="font-size: 0.75rem; font-weight: 700; color: #818cf8;">RESPONSE TIME</span>
+            <div style="font-size: 1.4rem; font-weight: 900; color: #818cf8; font-family: '${brandKit.headingFont}';">&lt; 180ms</div>
+            <span style="font-size: 0.72rem; opacity: 0.8;">Trải nghiệm mượt mà</span>
+          </div>
+          <div style="background: rgba(245,158,11,0.1); border: 1px solid #f59e0b40; border-radius: 8px; padding: 12px;">
+            <span style="font-size: 0.75rem; font-weight: 700; color: #f59e0b;">TỶ LỆ NỢ XẤU / SỰ CỐ</span>
+            <div style="font-size: 1.4rem; font-weight: 900; color: #f59e0b; font-family: '${brandKit.headingFont}';">1.42%</div>
+            <span style="font-size: 0.72rem; opacity: 0.8;">Kiểm soát an toàn</span>
+          </div>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid ${brandKit.primaryColor}20; border-radius: 8px; padding: 14px; flex: 1;">
+          <h4 style="font-size: 0.9rem; font-weight: 700; color: ${brandKit.textColor}; margin-bottom: 6px;">📋 Ma Trận Chỉ Số Vận Hành & Khuyến Nghị Giám Sát</h4>
+          <p style="font-size: 0.82rem; opacity: 0.85; line-height: 1.45;">${escapeHtml(slide.subtitle || 'Duy trì theo dõi liên tục, tối ưu hạ tầng Cloud và tự động hóa cảnh báo sớm.')}</p>
+        </div>
+      </div>
+    `;
+  } else {
+    // Universal 40-Layout Card Fallback
+    const cards = slide.cards || slide.items || [
+      { title: 'Nội dung trọng tâm 1', desc: 'Mô tả chi tiết và phân tích dữ liệu' },
+      { title: 'Nội dung trọng tâm 2', desc: 'Mô tả chi tiết và phân tích dữ liệu' }
+    ];
+    bodyHtml = `
+      <div class="slide-layout-generic" style="display: flex; flex-direction: column; gap: 12px; height: 100%;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; flex: 1;">
+          ${cards.map((c, i) => `
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid ${brandKit.primaryColor}30; border-radius: 8px; padding: 14px;">
+              <h4 style="font-size: 0.92rem; font-weight: 700; color: ${brandKit.textColor}; margin-bottom: 6px;">${escapeHtml(c.title || c.label || ('Mục ' + (i+1)))}</h4>
+              <p style="font-size: 0.8rem; line-height: 1.4; opacity: 0.85;">${escapeHtml(c.desc || c.body || '')}</p>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
   }
 
   // Render Inner Footer
@@ -3348,8 +3461,29 @@ if (btnDownloadPPTX) {
           return;
         }
       } catch (err) {
-        console.warn('Template export fallback to client generator:', err);
+        console.warn('Template export fallback to server engine:', err);
       }
+    }
+
+    // 2. Try High-Precision MB 40-Layout Server Engine
+    try {
+      const res = await fetch('/api/slide/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deckData: currentDeck
+        })
+      });
+      const resJson = await res.json();
+      if (resJson.success && resJson.base64) {
+        const blob = base64ToBlob(resJson.base64, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+        downloadBlob(blob, preferredFilename || resJson.fileName);
+        showToast(`🎉 Đã xuất file PowerPoint MB (.pptx) chuẩn 16:9 (${resJson.slideCount} slides)!`, 'success');
+        btnDownloadPPTX.disabled = false;
+        return;
+      }
+    } catch (err) {
+      console.warn('MB Server engine export fallback to client generator:', err);
     }
 
     if (typeof PptxGenJS === 'undefined' && typeof window.PptxGenJS === 'undefined') {
@@ -4251,13 +4385,235 @@ function showToast(message, type = 'info') {
 }
 
 // ============================================
+// MB 40 Layouts Catalog & JSON Deck Modals
+// ============================================
+const btnOpenLayoutCatalog = document.getElementById('btnOpenLayoutCatalog');
+const layoutCatalogModal = document.getElementById('layoutCatalogModal');
+const btnCloseLayoutCatalog = document.getElementById('btnCloseLayoutCatalog');
+const layoutCatalogBody = document.getElementById('layoutCatalogBody');
+
+const btnOpenJsonDeckEditor = document.getElementById('btnOpenJsonDeckEditor');
+const jsonDeckEditorModal = document.getElementById('jsonDeckEditorModal');
+const btnCloseJsonDeckEditor = document.getElementById('btnCloseJsonDeckEditor');
+const jsonDeckTextarea = document.getElementById('jsonDeckTextarea');
+const jsonEditorStatusbar = document.getElementById('jsonEditorStatusbar');
+const btnCopyJsonDeck = document.getElementById('btnCopyJsonDeck');
+const btnFormatJsonDeck = document.getElementById('btnFormatJsonDeck');
+const btnApplyJsonDeck = document.getElementById('btnApplyJsonDeck');
+
+const MB_40_LAYOUTS_CATALOG = [
+  {
+    category: "Tổng quan & Giới thiệu",
+    items: [
+      { id: "cover_gradient", name: "Bìa Xanh Đậm (Cover Gradient)", desc: "Trang bìa xanh MB Blue #171EDB bứt phá" },
+      { id: "cover_light", name: "Bìa Sáng (Cover Light)", desc: "Trang bìa nền trắng thanh lịch, bảo mật" },
+      { id: "agenda", name: "Chương Trình & Mục Lục (Agenda)", desc: "4 chủ đề chính + Thẻ thông điệp" },
+      { id: "section_divider", name: "Phân Tách Chương / Phần", desc: "Slide chia phần nền xanh Navy #081235" },
+      { id: "closing", name: "Kết Thúc & Lời Cảm Ơn", desc: "Slide kết thúc, liên hệ và QR Code" }
+    ]
+  },
+  {
+    category: "Tài chính & Kinh doanh",
+    items: [
+      { id: "executive_summary", name: "Tóm Tắt Điều Hành (Executive Summary)", desc: "Thông điệp lãnh đạo & 3 thẻ trụ cột" },
+      { id: "key_message", name: "Thông Điệp Trọng Tâm & Số Liệu", desc: "Trích dẫn lớn thông điệp + 1 KPI nổi bật" },
+      { id: "kpi_overview", name: "Tổng Quan Chỉ Số KPI", desc: "4 KPI đầu trang + Phân tích & 3 Mục tiêu" },
+      { id: "financial_dashboard", name: "Dashboard Tài Chính", desc: "4 KPI (TOI, NII, NFI, NIM) + Biểu đồ đường" },
+      { id: "pnl_bridge", name: "Cầu Nối PnL Waterfall Bridge", desc: "Biểu đồ cầu nối lợi nhuận PBT từng bước" },
+      { id: "balance_sheet", name: "Bảng Cân Đối Kế Toán", desc: "Tổng tài sản vs Nguồn vốn chi tiết" },
+      { id: "cash_flow", name: "Lưu Chuyển Tiền Tệ (Cash Flow)", desc: "3 dòng tiền CFO, CFI, CFF & Tiền cuối kỳ" },
+      { id: "trend", name: "Phân Tích Xu Hướng Nhiều Chu Kỳ", desc: "Biểu đồ xu hướng đa chỉ số & Milestones" },
+      { id: "plan_actual", name: "Kế Hoạch vs Thực Tế (Plan vs Actual)", desc: "Biểu đồ so sánh & Phân tích chênh lệch" },
+      { id: "composition", name: "Cơ Cấu Tỷ Trọng (Donut Chart)", desc: "Biểu đồ bánh Donut & danh mục tỷ trọng" },
+      { id: "data_table", name: "Bảng Dữ Liệu Tài Chính Chi Tiết", desc: "Bảng 6 cột chuẩn báo cáo tài chính" },
+      { id: "data_insight_split", name: "Chia Đôi Số Liệu & Insight", desc: "Nửa trái số liệu & Nửa phải phân tích sâu" },
+      { id: "segment_performance", name: "Hiệu Quả Phân Khúc KH", desc: "3 phân khúc: Cá nhân, SME, Doanh nghiệp lớn" },
+      { id: "region_performance", name: "Kết Quả Theo 4 Vùng Địa Lý", desc: "Miền Bắc, Miền Nam, Miền Trung, Nước ngoài" },
+      { id: "cib_portfolio", name: "Danh Mục Khách Hàng Lớn CIB", desc: "Phân bổ ngành & Hạn mức tập trung" },
+      { id: "credit_quality", name: "Chất Lượng Tín Dụng & Nợ 5 Nhóm", desc: "Phân loại nợ, tỷ lệ NPL & Bao phủ LLR" },
+      { id: "collections", name: "Dashboard Thu Hồi Nợ", desc: "Theo dõi 4 Bucket quá hạn & Kênh thu nợ" }
+    ]
+  },
+  {
+    category: "Trải nghiệm khách hàng & Vận hành",
+    items: [
+      { id: "cx_dashboard", name: "Tổng Quan CX / VOC Dashboard", desc: "CSAT, NPS, Tỷ lệ lỗi, Sentiment & Chủ đề" },
+      { id: "funnel", name: "Hành Trình Khách Hàng & Funnel", desc: "Phễu chuyển đổi 5 bước eKYC" },
+      { id: "sla_dashboard", name: "Dashboard Chất Lượng SLA", desc: "Uptime 99.99%, tốc độ phản hồi App & TAT" },
+      { id: "incident_dashboard", name: "Quản Trị Sự Cố Công Nghệ", desc: "Sự cố P1/P2/P3, MTTR & Nhật ký xử lý" },
+      { id: "root_cause", name: "Nguyên Nhân Gốc Rễ RCA (4P)", desc: "Mô hình 4P (Con người, Quy trình, Tech, Chính sách)" },
+      { id: "quote", name: "Tiếng Nói Khách Hàng (VOC Quote)", desc: "Trích dẫn nguyên văn phản hồi ấn tượng" },
+      { id: "process", name: "Quy Trình Nghiệp Vụ 5 Bước", desc: "Quy trình tác nghiệp kèm điểm kiểm soát" },
+      { id: "ui_showcase", name: "Trình Bày Sản Phẩm & UI", desc: "Giao diện sản phẩm khung Web/App" },
+      { id: "case_study", name: "Tổng Quan Dự Án / Case Study", desc: "Bài toán, giải pháp & Kết quả đạt được" }
+    ]
+  },
+  {
+    category: "Quản trị, Rủi ro & Chiến lược",
+    items: [
+      { id: "comparison", name: "So Sánh Sản Phẩm / Đối Thủ", desc: "Bảng đối chiếu tiêu chí MB vs Ngân hàng khác" },
+      { id: "risk_matrix", name: "Ma Trận Đánh Giá Rủi Ro Heatmap", desc: "Heatmap ma trận Xác suất vs Tác động" },
+      { id: "controls_compliance", name: "Ma Trận Kiểm Soát & Tuân Thủ", desc: "Kiểm tra tuân thủ quy định pháp luật" },
+      { id: "decision_matrix", name: "Ma Trận Ra Quyết Định", desc: "Chấm điểm trọng số để chọn giải pháp tối ưu" },
+      { id: "scenario_analysis", name: "Phân Tích 3 Kịch Bản", desc: "Kịch bản Thận trọng, Cơ sở, Tích cực" },
+      { id: "roadmap", name: "Lộ Trình Triển Khai (Roadmap)", desc: "Timeline 4 giai đoạn dự án chiến lược" },
+      { id: "project_status", name: "Báo Cáo Tiến Độ Dự Án PMO", desc: "Đèn trạng thái RAG & Milestones" },
+      { id: "problem_solution", name: "Vấn Đề → Dữ Liệu → Giải Pháp", desc: "3 thẻ logic: Bối cảnh, Số liệu, Giải pháp" },
+      { id: "action_tracker", name: "Bảng Theo Dõi Hành Động", desc: "Phân công công việc, Owner, Hạn chót" }
+    ]
+  }
+];
+
+function initLayoutCatalogModal() {
+  if (!btnOpenLayoutCatalog || !layoutCatalogModal) return;
+
+  btnOpenLayoutCatalog.addEventListener('click', () => {
+    renderCatalogContent();
+    layoutCatalogModal.style.display = 'flex';
+  });
+
+  if (btnCloseLayoutCatalog) {
+    btnCloseLayoutCatalog.addEventListener('click', () => {
+      layoutCatalogModal.style.display = 'none';
+    });
+  }
+
+  layoutCatalogModal.addEventListener('click', (e) => {
+    if (e.target === layoutCatalogModal) layoutCatalogModal.style.display = 'none';
+  });
+}
+
+function renderCatalogContent() {
+  if (!layoutCatalogBody) return;
+  layoutCatalogBody.innerHTML = MB_40_LAYOUTS_CATALOG.map(cat => `
+    <div class="layout-catalog-category">
+      <div class="layout-category-title">
+        <span>📁</span> ${escapeHtml(cat.category)}
+        <span class="badge" style="background: rgba(99,102,241,0.2); color: #818cf8; font-size: 0.72rem; margin-left: 6px;">${cat.items.length} Layouts</span>
+      </div>
+      <div class="layout-catalog-cards-grid">
+        ${cat.items.map(it => `
+          <div class="layout-catalog-card" data-layout-id="${it.id}">
+            <div>
+              <div class="layout-card-header">
+                <span class="layout-card-name">${escapeHtml(it.name)}</span>
+                <span class="layout-card-id">${it.id}</span>
+              </div>
+              <p class="layout-card-desc">${escapeHtml(it.desc)}</p>
+            </div>
+            <button type="button" class="btn-apply-layout-chip" data-apply-layout="${it.id}">Áp Dụng Cho Slide Hiện Tại</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  layoutCatalogBody.querySelectorAll('[data-apply-layout]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const layoutId = btn.dataset.applyLayout;
+      applyLayoutToCurrentSlide(layoutId);
+      layoutCatalogModal.style.display = 'none';
+    });
+  });
+
+  layoutCatalogBody.querySelectorAll('.layout-catalog-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const layoutId = card.dataset.layoutId;
+      applyLayoutToCurrentSlide(layoutId);
+      layoutCatalogModal.style.display = 'none';
+    });
+  });
+}
+
+function applyLayoutToCurrentSlide(layoutId) {
+  if (!currentDeck || !currentDeck.slides[currentSlideIndex]) return;
+  currentDeck.slides[currentSlideIndex].layout = layoutId;
+  if (selectCurrentSlideLayout) selectCurrentSlideLayout.value = layoutId;
+  renderCurrentSlide();
+  renderSlideThumbnails();
+  showToast(`🎉 Đã áp dụng bố cục: "${layoutId}" cho Slide ${currentSlideIndex + 1}`, 'success');
+}
+
+function initJsonDeckEditorModal() {
+  if (!btnOpenJsonDeckEditor || !jsonDeckEditorModal) return;
+
+  btnOpenJsonDeckEditor.addEventListener('click', () => {
+    if (!currentDeck) {
+      showToast('Chưa có dữ liệu bài thuyết trình!', 'error');
+      return;
+    }
+    jsonDeckTextarea.value = JSON.stringify(currentDeck, null, 2);
+    if (jsonEditorStatusbar) jsonEditorStatusbar.innerHTML = `<span>Tổng số: ${currentDeck.slides.length} slides • Hợp lệ</span>`;
+    jsonDeckEditorModal.style.display = 'flex';
+  });
+
+  if (btnCloseJsonDeckEditor) {
+    btnCloseJsonDeckEditor.addEventListener('click', () => {
+      jsonDeckEditorModal.style.display = 'none';
+    });
+  }
+
+  jsonDeckEditorModal.addEventListener('click', (e) => {
+    if (e.target === jsonDeckEditorModal) jsonDeckEditorModal.style.display = 'none';
+  });
+
+  if (btnCopyJsonDeck) {
+    btnCopyJsonDeck.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(jsonDeckTextarea.value);
+        showToast('📋 Đã sao chép toàn bộ JSON Deck vào bộ nhớ tạm!', 'success');
+      } catch (e) {
+        jsonDeckTextarea.select();
+        document.execCommand('copy');
+        showToast('📋 Đã sao chép JSON!', 'success');
+      }
+    });
+  }
+
+  if (btnFormatJsonDeck) {
+    btnFormatJsonDeck.addEventListener('click', () => {
+      try {
+        const parsed = JSON.parse(jsonDeckTextarea.value);
+        jsonDeckTextarea.value = JSON.stringify(parsed, null, 2);
+        showToast('✨ Đã định dạng JSON chuẩn!', 'info');
+      } catch (err) {
+        showToast('Lỗi cú pháp JSON: ' + err.message, 'error');
+      }
+    });
+  }
+
+  if (btnApplyJsonDeck) {
+    btnApplyJsonDeck.addEventListener('click', () => {
+      try {
+        const parsed = JSON.parse(jsonDeckTextarea.value);
+        if (!parsed || !Array.isArray(parsed.slides) || parsed.slides.length === 0) {
+          throw new Error('JSON deck phải chứa mảng "slides" không rỗng.');
+        }
+        currentDeck = parsed;
+        currentSlideIndex = 0;
+        renderCurrentSlide();
+        renderSlideThumbnails();
+        jsonDeckEditorModal.style.display = 'none';
+        showToast(`💾 Đã nạp thành công ${parsed.slides.length} slides từ JSON!`, 'success');
+      } catch (err) {
+        showToast('Không thể áp dụng JSON: ' + err.message, 'error');
+      }
+    });
+  }
+}
+
+// ============================================
 // Initialize
 // ============================================
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   loadConfig();
   initBrandKit();
+  initLayoutCatalogModal();
+  initJsonDeckEditorModal();
 
   // Default: last 6 months
   setDateRange(180);
 });
+

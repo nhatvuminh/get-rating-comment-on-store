@@ -1,0 +1,15 @@
+{
+  "implemented_layouts": [
+    "cover_light", "cover_gradient", "agenda", "section_divider", "executive_summary", "key_message",
+    "kpi_overview", "financial_dashboard", "trend", "plan_actual", "composition", "data_table", "comparison",
+    "cx_dashboard", "funnel", "problem_solution", "process", "risk_matrix", "roadmap", "ui_showcase",
+    "case_study", "closing", "quote", "action_tracker"
+  ],
+  "layouts_to_extend_in_antigravity": [
+    "data_insight_split", "balance_sheet", "pnl_bridge", "cash_flow", "segment_performance", "region_performance",
+    "cib_portfolio", "credit_quality", "collections", "sla_dashboard", "incident_dashboard", "root_cause",
+    "controls_compliance", "decision_matrix", "scenario_analysis", "project_status"
+  ],
+  "total_target_layouts": 40,
+  "reference_deck": "reference/MB_Finance_Banking_Presentation_Template.pptx"
+}

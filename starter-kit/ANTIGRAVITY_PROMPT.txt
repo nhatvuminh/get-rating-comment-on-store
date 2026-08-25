@@ -1,0 +1,125 @@
+BẠN ĐANG LÀM VIỆC TRÊN PROJECT “MB ANTIGRAVITY SLIDE GENERATOR”.
+
+MỤC TIÊU
+Hoàn thiện một tool local có thể đọc JSON nội dung và xuất file PowerPoint 16:9 theo đúng MB Brand System, chất lượng tương đương deck trong thư mục reference/. Không tạo slide dưới dạng ảnh phẳng. Toàn bộ text, chart, table, card, timeline và diagram phải chỉnh sửa được trong PowerPoint.
+
+ĐỌC TRƯỚC KHI CODE
+1. README.md
+2. src/theme.mjs
+3. src/helpers.mjs
+4. src/layouts.mjs
+5. input/content-schema.json
+6. input/layout-catalog.json
+7. reference/MB_Brand_System.png
+8. reference/MB_Finance_Banking_Presentation_Template.pptx
+9. reference/layout-contact-sheet.png
+
+KHÔNG ĐƯỢC
+- Không thay PptxGenJS bằng thư viện xuất slide thành ảnh.
+- Không sửa logo, đổi màu logo hoặc kéo sai tỷ lệ.
+- Không thêm màu trang trí ngoài MB Brand System.
+- Không dùng biểu đồ 3D, coin/money visual, icon hoạt hình hoặc glassmorphism mạnh.
+- Không bịa số liệu, insight hoặc kết luận kinh doanh.
+- Không dùng Lorem Ipsum.
+- Không xóa hoặc thay đổi JSON contract đang có nếu không đảm bảo tương thích ngược.
+
+BRAND TOKENS BẮT BUỘC
+- MB Blue: #171EDB
+- MB Red: #F50912
+- Ink Navy: #081235
+- Cool Gray: #8A91A8
+- Light Blue: #E9ECFF
+- Background Gray: #F3F5F4
+- White: #FFFFFF
+- Gradient: #171EDB → #3157F5
+- Headline/Data: Space Grotesk Bold
+- Body: Inter Regular
+- Slide: 16:9
+- Grid: 12 cột
+- Spacing: 4, 8, 12, 16, 24, 32, 48 px
+- Radius: 8, 12, 16 px
+- Body >= 16 pt; caption >= 11 pt trong output production.
+
+CÔNG VIỆC CẦN LÀM
+
+PHASE 1 — CHẠY BASELINE
+1. Chạy npm install.
+2. Chạy npm run validate.
+3. Chạy npm run generate.
+4. Xác nhận output/MB_Demo_Generated.pptx mở được và mọi đối tượng editable.
+5. Không refactor trước khi baseline chạy thành công.
+
+PHASE 2 — HOÀN THIỆN 40 LAYOUT
+Giữ 24 layout đang có. Viết thêm 16 renderer sau và đăng ký trong layoutRegistry:
+- data_insight_split
+- balance_sheet
+- pnl_bridge
+- cash_flow
+- segment_performance
+- region_performance
+- cib_portfolio
+- credit_quality
+- collections
+- sla_dashboard
+- incident_dashboard
+- root_cause
+- controls_compliance
+- decision_matrix
+- scenario_analysis
+- project_status
+
+Mỗi renderer phải:
+- Có silhouette riêng, không chỉ đổi title của cùng một dashboard.
+- Dùng addHeader/addFooter/theme token dùng chung.
+- Có placeholder tiếng Việt.
+- Có “Dữ liệu minh họa” nếu hiển thị sample numbers.
+- Dùng chart/table PowerPoint native khi phù hợp.
+- Không để title wrap.
+- Không có text nhỏ hơn chuẩn production.
+
+PHASE 3 — XÂY TOOL LOCAL
+Tạo một web UI local tối giản nhưng chuyên nghiệp:
+- Khung trái: nhập/paste JSON, upload file JSON, chọn layout.
+- Khung giữa: danh sách slide, kéo thả đổi thứ tự, duplicate/delete.
+- Khung phải: form chỉnh nội dung theo schema của layout.
+- Nút Validate và Export PPTX.
+- Backend gọi lại chính engine src/generate.mjs; không tạo một engine thứ hai.
+- Không cần tài khoản và không gửi dữ liệu ra ngoài.
+- Hiển thị lỗi rõ slide số mấy, trường nào sai.
+
+GỢI Ý STACK
+- Node.js + Express cho API local.
+- Frontend React/Vite hoặc HTML/CSS/JS thuần.
+- PptxGenJS là engine duy nhất.
+- Ajv để validate JSON Schema nếu cần.
+
+API ĐỀ XUẤT
+- POST /api/validate: nhận JSON deck, trả errors/warnings.
+- POST /api/generate: nhận JSON deck, trả file .pptx.
+- GET /api/layouts: trả layout catalog và field schema.
+
+TEXT LOCK
+Mọi chữ và số trên slide phải lấy từ JSON input hoặc placeholder đã khai báo trong renderer. Không tự bổ sung claim, slogan, con số, tên khách hàng hoặc nội dung readable trên mockup.
+
+QA BẮT BUỘC
+1. Tạo một demo gồm đủ 40 layout.
+2. Render tất cả slide sang PNG/PDF bằng LibreOffice headless hoặc công cụ tương đương.
+3. Tạo contact sheet 8 cột × 5 hàng.
+4. Rà soát từng slide ở kích thước đầy đủ.
+5. Sửa toàn bộ title wrap, text clipping, overlap, chart label va chạm, sai màu, sai font và lệch grid.
+6. Kiểm tra file PowerPoint vẫn chỉnh sửa được.
+7. Không đánh dấu hoàn tất nếu chỉ kiểm tra bằng code mà chưa render trực quan.
+
+TIÊU CHÍ NGHIỆM THU
+- npm run generate chạy không lỗi.
+- Có đúng 40 layout khác nhau.
+- Có ít nhất 10 native charts và 5 native tables trong demo.
+- Có Slide Master/theme thống nhất.
+- Logo giữ đúng tỷ lệ.
+- Output 16:9.
+- Không Lorem Ipsum.
+- Không dữ liệu thật bị bịa.
+- Không slide phẳng hóa thành ảnh.
+- Không chữ tràn/chồng lấn.
+
+HÃY BẮT ĐẦU BẰNG VIỆC CHẠY BASELINE, BÁO CÁO NGẮN KẾT QUẢ, SAU ĐÓ MỚI THỰC HIỆN PHASE 2.

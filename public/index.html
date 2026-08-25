@@ -448,7 +448,13 @@
             <div class="brandkit-presets-row">
               <span class="preset-label">Bảng màu mẫu gợi ý:</span>
               <div class="preset-chips" id="presetChipsContainer">
-                <button type="button" class="preset-chip active" data-preset="modernblue">
+                <button type="button" class="preset-chip active" data-preset="mbbank">
+                  <span class="chip-dot" style="background:#171EDB"></span>
+                  <span class="chip-dot" style="background:#F50912"></span>
+                  <span class="chip-dot" style="background:#081235"></span>
+                  MB Bank (Chuẩn Thương Hiệu)
+                </button>
+                <button type="button" class="preset-chip" data-preset="modernblue">
                   <span class="chip-dot" style="background:#141ED2"></span>
                   <span class="chip-dot" style="background:#7B5FFF"></span>
                   <span class="chip-dot" style="background:#12B7B7"></span>
@@ -946,23 +952,64 @@
             <div class="studio-center-controls">
               <label for="selectCurrentSlideLayout" class="studio-control-label">Bố cục slide này:</label>
               <select id="selectCurrentSlideLayout" class="styled-select select-layout-sm">
-                <option value="cover">Trang Bìa (Cover Title Slide)</option>
-                <option value="agenda">Tổng Quan & Mục Lục (Summary & Agenda)</option>
-                <option value="content">Nội Dung Tiêu Chuẩn & Bullets (Standard Content)</option>
-                <option value="cards2">2 Cột Đối Chiếu & Chi Tiết (2-Column Cards)</option>
-                <option value="cards3">3 Cột Trụ Cột & Tính Năng (3-Card Pillars)</option>
-                <option value="cards4">4 Cột / Lưới 4 Khối (4-Card Grid)</option>
-                <option value="table">Bảng Biểu & Dữ Liệu (Data Table)</option>
-                <option value="kpis">Chỉ Số & Số Liệu KPI (Big Numbers)</option>
-                <option value="chart">Biểu Đồ & Tỷ Lệ (Native Chart Data)</option>
-                <option value="timeline">Lộ Trình & Tiến Trình (Roadmap & Timeline)</option>
-                <option value="quotes">Tiếng Nói Khách Hàng (Customer Voice Quotes)</option>
-                <option value="action_plan">Kế Hoạch & Hành Động (Action Plan & Matrix)</option>
-                <option value="conclusion">Kết Luận & Q&A (Closing Slide)</option>
+                <optgroup label="Tổng quan & Giới thiệu">
+                  <option value="cover_gradient">Bìa Xanh Đậm (Cover Gradient MB)</option>
+                  <option value="cover_light">Bìa Sáng (Cover Light MB)</option>
+                  <option value="agenda">Chương Trình & Mục Lục (Agenda)</option>
+                  <option value="section_divider">Phân Tách Chương / Phần (Section Divider)</option>
+                  <option value="closing">Kết Thúc & Lời Cảm Ơn (Closing & Q&A)</option>
+                </optgroup>
+                <optgroup label="Tài chính & Kinh doanh">
+                  <option value="executive_summary">Tóm Tắt Điều Hành (Executive Summary)</option>
+                  <option value="key_message">Thông Điệp Trọng Tâm & Số Liệu</option>
+                  <option value="kpi_overview">Tổng Quan Chỉ Số KPI</option>
+                  <option value="financial_dashboard">Dashboard Tài Chính (TOI, NII, NFI, NIM)</option>
+                  <option value="pnl_bridge">Cầu Nối Lợi Nhuận PnL Waterfall</option>
+                  <option value="balance_sheet">Bảng Cân Đối Kế Toán (Tài Sản vs Nguồn Vốn)</option>
+                  <option value="cash_flow">Lưu Chuyển Tiền Tệ (CFO, CFI, CFF)</option>
+                  <option value="trend">Phân Tích Xu Hướng & Mốc Quan Trọng</option>
+                  <option value="plan_actual">Kế Hoạch vs Thực Tế (Plan vs Actual)</option>
+                  <option value="composition">Cơ Cấu Tỷ Trọng (Donut Chart)</option>
+                  <option value="data_table">Bảng Dữ Liệu Tài Chính Chi Tiết</option>
+                  <option value="data_insight_split">Chia Đôi Số Liệu & Insight Chuyên Sâu</option>
+                  <option value="segment_performance">Hiệu Quả Theo Phân Khúc (Retail, SME, CIB)</option>
+                  <option value="region_performance">Hiệu Quả Kinh Doanh Theo 4 Vùng Địa Lý</option>
+                  <option value="cib_portfolio">Danh Mục Khách Hàng Lớn CIB & Ngành</option>
+                  <option value="credit_quality">Chất Lượng Tín Dụng & Nợ 5 Nhóm (NPL / LLR)</option>
+                  <option value="collections">Dashboard Thu Hồi Nợ (Collections)</option>
+                </optgroup>
+                <optgroup label="Trải nghiệm khách hàng & Vận hành">
+                  <option value="cx_dashboard">Tổng Quan CX / VOC Dashboard</option>
+                  <option value="funnel">Hành Trình Khách Hàng & Funnel eKYC</option>
+                  <option value="sla_dashboard">Dashboard Chất Lượng Dịch Vụ & SLA (Uptime)</option>
+                  <option value="incident_dashboard">Quản Trị Sự Cố Công Nghệ (Incidents P1/P2/P3)</option>
+                  <option value="root_cause">Phân Tích Nguyên Nhân Gốc Rễ RCA (4P)</option>
+                  <option value="quote">Tiếng Nói Khách Hàng (VOC Quote)</option>
+                  <option value="process">Sơ Đồ Quy Trình Nghiệp Vụ 5 Bước</option>
+                  <option value="ui_showcase">Trình Bày Sản Phẩm & Giao Diện Web/App</option>
+                  <option value="case_study">Tổng Quan Dự Án Thực Tế (Case Study)</option>
+                </optgroup>
+                <optgroup label="Quản trị, Rủi ro & Chiến lược">
+                  <option value="comparison">So Sánh Sản Phẩm / Đối Thủ Cạnh Tranh</option>
+                  <option value="risk_matrix">Ma Trận Đánh Giá Rủi Ro Heatmap (4x4)</option>
+                  <option value="controls_compliance">Ma Trận Kiểm Soát & Tuân Thủ Pháp Luật</option>
+                  <option value="decision_matrix">Ma Trận Chấm Điểm & Ra Quyết Định</option>
+                  <option value="scenario_analysis">Phân Tích Kịch Bản (Bear, Base, Bull Case)</option>
+                  <option value="roadmap">Lộ Trình Triển Khai Chiến Lược (Roadmap)</option>
+                  <option value="project_status">Báo Cáo Tiến Độ Dự Án PMO (Đèn RAG)</option>
+                  <option value="problem_solution">Vấn Đề → Dữ Liệu → Giải Pháp</option>
+                  <option value="action_tracker">Bảng Theo Dõi Hành Động Trọng Tâm</option>
+                </optgroup>
               </select>
             </div>
 
             <div class="studio-right-controls">
+              <button type="button" class="btn btn-sm btn-outline-brand" id="btnOpenLayoutCatalog" title="Xem danh mục 40 mẫu Layout">
+                📑 40 Mẫu Layout
+              </button>
+              <button type="button" class="btn btn-sm btn-ghost" id="btnOpenJsonDeckEditor" title="Xem và chỉnh sửa JSON Deck">
+                💻 JSON Deck
+              </button>
               <button type="button" class="btn btn-sm btn-ghost" id="btnAddSlide" title="Thêm một slide mới">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                   <line x1="12" y1="5" x2="12" y2="19"/>
@@ -975,7 +1022,7 @@
                   <polyline points="3 6 5 6 21 6"/>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                 </svg>
-                Xóa Slide
+                Xóa
               </button>
               <button type="button" class="btn btn-sm btn-ghost" id="btnToggleSlideEditor" title="Mở bảng chỉnh sửa chi tiết">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -1025,7 +1072,7 @@
               <div class="export-file-icon">📊</div>
               <div>
                 <h4 id="exportDeckFilename">Presentation_Report.pptx</h4>
-                <p class="text-muted">Định dạng Microsoft PowerPoint (.pptx) chuẩn Office • Đầy đủ Textbox, Shapes, Bảng biểu & Biểu đồ có thể chỉnh sửa</p>
+                <p class="text-muted">Định dạng Microsoft PowerPoint (.pptx) chuẩn Office 16:9 • Đầy đủ Textbox, Shapes, Bảng biểu & Biểu đồ có thể chỉnh sửa 100%</p>
               </div>
             </div>
 
@@ -1043,7 +1090,7 @@
                   <polyline points="7 10 12 15 17 10"/>
                   <line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
-                📥 Tải File Theo Template Mẫu (.pptx)
+                📥 Tải Theo Template Mẫu (.pptx)
               </button>
               <button type="button" class="btn btn-primary btn-large btn-download-pptx" id="btnDownloadPPTX">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
@@ -1051,13 +1098,59 @@
                   <polyline points="7 10 12 15 17 10"/>
                   <line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
-                📥 Tải File PowerPoint (.pptx) Chỉnh Sửa Được
+                📥 Tải File PowerPoint MB (.pptx) Chỉnh Sửa Được
               </button>
             </div>
           </div>
         </section>
       </div>
     </main>
+
+    <!-- MODAL: 40 LAYOUTS CATALOG -->
+    <div class="modal-backdrop" id="layoutCatalogModal" style="display:none">
+      <div class="modal-dialog modal-large">
+        <div class="modal-header">
+          <div class="modal-title-row">
+            <span class="modal-icon">📑</span>
+            <div>
+              <h3>Thư Viện 40 Mẫu Layout MB Bank Brand System</h3>
+              <p class="text-muted">Chọn một bố cục để áp dụng ngay vào slide hiện tại hoặc xem định dạng dữ liệu</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal" id="btnCloseLayoutCatalog">✕</button>
+        </div>
+        <div class="modal-body" id="layoutCatalogBody">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: JSON DECK EDITOR -->
+    <div class="modal-backdrop" id="jsonDeckEditorModal" style="display:none">
+      <div class="modal-dialog modal-large">
+        <div class="modal-header">
+          <div class="modal-title-row">
+            <span class="modal-icon">💻</span>
+            <div>
+              <h3>Trình Xem & Chỉnh Sửa JSON Deck Trực Tiếp</h3>
+              <p class="text-muted">Xem, chỉnh sửa hoặc dán cấu trúc JSON chuẩn của bài thuyết trình</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal" id="btnCloseJsonDeckEditor">✕</button>
+        </div>
+        <div class="modal-body">
+          <textarea id="jsonDeckTextarea" class="json-deck-editor-area" spellcheck="false"></textarea>
+          <div class="json-editor-statusbar" id="jsonEditorStatusbar">
+            <span>Trạng thái: Sẵn sàng</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="btnCopyJsonDeck">📋 Sao Chép JSON</button>
+          <button type="button" class="btn btn-ghost" id="btnFormatJsonDeck">✨ Định Dạng (Format)</button>
+          <button type="button" class="btn btn-primary" id="btnApplyJsonDeck">💾 Áp Dụng Vào Slide Studio</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>

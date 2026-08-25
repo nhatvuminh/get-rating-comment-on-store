@@ -1,0 +1,85 @@
+{
+  "meta": {
+    "title": "MB Demo Generated",
+    "author": "MB Presentation Generator",
+    "company": "MB",
+    "subject": "Finance & Banking Template Demo"
+  },
+  "slides": [
+    {
+      "layout": "cover_light",
+      "title": "[TÊN BÁO CÁO]",
+      "subtitle": "[ĐƠN VỊ]  •  [THỜI GIAN]",
+      "mediaLabel": "[CHÈN HÌNH ẢNH]\nHOẶC KEY VISUAL"
+    },
+    {
+      "layout": "agenda",
+      "title": "[NỘI DUNG TRÌNH BÀY]",
+      "items": [
+        { "title": "[CHỦ ĐỀ / PHẦN 01]", "description": "[MÔ TẢ NGẮN]" },
+        { "title": "[CHỦ ĐỀ / PHẦN 02]", "description": "[MÔ TẢ NGẮN]" },
+        { "title": "[CHỦ ĐỀ / PHẦN 03]", "description": "[MÔ TẢ NGẮN]" },
+        { "title": "[CHỦ ĐỀ / PHẦN 04]", "description": "[MÔ TẢ NGẮN]" }
+      ]
+    },
+    {
+      "layout": "executive_summary",
+      "title": "[TÓM TẮT ĐIỀU HÀNH]",
+      "message": "[THÔNG ĐIỆP CHÍNH DÀNH CHO LÃNH ĐẠO]",
+      "subtitle": "[Một câu giải thích ngắn về ý nghĩa và quyết định cần xem xét]"
+    },
+    {
+      "layout": "kpi_overview",
+      "title": "[TỔNG QUAN CHỈ SỐ]",
+      "kpis": [
+        { "label": "[KPI 01]", "value": "[XX%]", "delta": "[+XX% so với kỳ trước]", "tone": "green" },
+        { "label": "[KPI 02]", "value": "[XXX TỶ VND]", "delta": "[±XX% so với kế hoạch]", "tone": "blue" },
+        { "label": "[KPI 03]", "value": "[XX.X]", "delta": "[±X.X điểm]", "tone": "red" },
+        { "label": "[KPI 04]", "value": "[XXX]", "delta": "[±XX so với mục tiêu]", "tone": "yellow" }
+      ]
+    },
+    {
+      "layout": "financial_dashboard",
+      "title": "[HIỆU QUẢ TÀI CHÍNH & KINH DOANH]",
+      "chartTitle": "[XU HƯỚNG DOANH THU]",
+      "chart": {
+        "categories": ["T1", "T2", "T3", "T4", "T5", "T6"],
+        "values": [48, 56, 53, 67, 73, 82]
+      }
+    },
+    {
+      "layout": "trend",
+      "title": "[XU HƯỚNG THEO THỜI GIAN]",
+      "insightTitle": "[INSIGHT TỪ DỮ LIỆU]"
+    },
+    {
+      "layout": "data_table",
+      "title": "[BẢNG DỮ LIỆU TÀI CHÍNH CHI TIẾT]"
+    },
+    {
+      "layout": "cx_dashboard",
+      "title": "[TỔNG QUAN CX / VOC]"
+    },
+    {
+      "layout": "process",
+      "title": "[QUY TRÌNH NGHIỆP VỤ NGÂN HÀNG]"
+    },
+    {
+      "layout": "risk_matrix",
+      "title": "[MA TRẬN RỦI RO / HEATMAP]"
+    },
+    {
+      "layout": "roadmap",
+      "title": "[ROADMAP / KẾ HOẠCH TRIỂN KHAI]"
+    },
+    {
+      "layout": "action_tracker",
+      "title": "[THEO DÕI HÀNH ĐỘNG]"
+    },
+    {
+      "layout": "closing",
+      "title": "[THÔNG ĐIỆP KẾT THÚC]",
+      "subtitle": "[THÔNG TIN LIÊN HỆ / BƯỚC TIẾP THEO]"
+    }
+  ]
+}

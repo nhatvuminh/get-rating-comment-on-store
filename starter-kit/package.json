@@ -1,0 +1,14 @@
+{
+  "name": "mb-antigravity-slide-generator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "JSON-driven PowerPoint generator for the MB Finance & Banking presentation system.",
+  "scripts": {
+    "generate": "node src/generate.mjs input/example-deck.json output/MB_Demo_Generated.pptx",
+    "validate": "node src/validate.mjs input/example-deck.json"
+  },
+  "dependencies": {
+    "pptxgenjs": "^4.0.1"
+  }
+}

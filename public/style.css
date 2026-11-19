@@ -315,18 +315,19 @@ body {
 }
 
 .app-name {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-primary);
-  max-width: 150px;
+  max-width: 170px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .app-score {
-  font-size: 0.7rem;
-  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 /* ============================================

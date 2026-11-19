@@ -62,12 +62,28 @@ async function loadConfig() {
     const response = await fetch(`${API_BASE}/api/config`);
     const config = await response.json();
 
-    if (config.androidUrl) androidUrl.value = config.androidUrl;
-    if (config.iosUrl) iosUrl.value = config.iosUrl;
+    const savedAndroid = config.androidUrl || localStorage.getItem('saved_android_url') || '';
+    const savedIos = config.iosUrl || localStorage.getItem('saved_ios_url') || '';
 
-    showToast('Đã tải cấu hình đã lưu', 'info');
+    if (savedAndroid) androidUrl.value = savedAndroid;
+    if (savedIos) iosUrl.value = savedIos;
+
+    if (savedAndroid || savedIos) {
+      showToast('Đã tải cấu hình đã lưu', 'info');
+      if (savedAndroid) checkAppInfo('android', true);
+      if (savedIos) checkAppInfo('ios', true);
+    }
   } catch (err) {
-    console.log('No saved config found');
+    const savedAndroid = localStorage.getItem('saved_android_url') || '';
+    const savedIos = localStorage.getItem('saved_ios_url') || '';
+    if (savedAndroid) {
+      androidUrl.value = savedAndroid;
+      checkAppInfo('android', true);
+    }
+    if (savedIos) {
+      iosUrl.value = savedIos;
+      checkAppInfo('ios', true);
+    }
   }
 }
 
@@ -77,6 +93,9 @@ async function saveConfig() {
       androidUrl: androidUrl.value,
       iosUrl: iosUrl.value,
     };
+
+    localStorage.setItem('saved_android_url', androidUrl.value || '');
+    localStorage.setItem('saved_ios_url', iosUrl.value || '');
 
     const response = await fetch(`${API_BASE}/api/config`, {
       method: 'POST',
@@ -98,11 +117,13 @@ saveConfigBtn.addEventListener('click', saveConfig);
 // ============================================
 // App Info Check
 // ============================================
-async function checkAppInfo(platform) {
+async function checkAppInfo(platform, silent = false) {
   const url = platform === 'android' ? androidUrl.value : iosUrl.value;
 
   if (!url.trim()) {
-    showToast(`Vui lòng nhập đường dẫn ${platform === 'android' ? 'Google Play' : 'App Store'}`, 'error');
+    if (!silent) {
+      showToast(`Vui lòng nhập đường dẫn ${platform === 'android' ? 'Google Play' : 'App Store'}`, 'error');
+    }
     return;
   }
 
@@ -129,14 +150,22 @@ async function checkAppInfo(platform) {
     const nameEl = document.getElementById(`${platform}AppName`);
     const scoreEl = document.getElementById(`${platform}Score`);
 
-    iconEl.src = data.icon;
-    nameEl.textContent = data.title;
-    scoreEl.textContent = `⭐ ${data.score ? data.score.toFixed(1) : 'N/A'} • ${data.ratings || 0} đánh giá`;
+    if (data.icon) iconEl.src = data.icon;
+    nameEl.textContent = data.title || '';
+    const numScore = Number(data.score);
+    const numRatings = Number(data.ratings || data.reviews || 0);
+    const scoreText = (!isNaN(numScore) && numScore > 0) ? numScore.toFixed(1) : 'N/A';
+    const ratingsText = numRatings > 0 ? numRatings.toLocaleString('vi-VN') : '0';
+    scoreEl.textContent = `⭐ ${scoreText} • ${ratingsText} đánh giá`;
     previewEl.style.display = 'flex';
 
-    showToast(`Tìm thấy: ${data.title}`, 'success');
+    if (!silent) {
+      showToast(`Tìm thấy: ${data.title}`, 'success');
+    }
   } catch (err) {
-    showToast(`Lỗi: ${err.message}`, 'error');
+    if (!silent) {
+      showToast(`Lỗi: ${err.message}`, 'error');
+    }
   } finally {
     btn.disabled = false;
     btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="20 6 9 17 4 12"/></svg>`;
@@ -236,6 +265,10 @@ async function scrape(platform) {
 
   setButtonsDisabled(true);
   resultsSection.style.display = 'none';
+
+  // Ensure app preview badges are refreshed when scraping
+  if (platform === 'android' || platform === 'both') checkAppInfo('android', true);
+  if (platform === 'ios' || platform === 'both') checkAppInfo('ios', true);
 
   try {
     if (platform === 'both') {

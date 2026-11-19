@@ -2085,6 +2085,113 @@ app.post(['/api/app-info/android', '/app-info/android'], async (req, res) => {
   }
 });
 
+const APPLE_STOREFRONTS = {
+  vn: '143471',
+  us: '143441',
+  gb: '143444',
+  jp: '143462',
+  kr: '143466',
+  sg: '143464',
+  th: '143475',
+  id: '143476',
+  my: '143473',
+  ph: '143474',
+  tw: '143470',
+  hk: '143463',
+  au: '143460',
+  ca: '143455',
+  de: '143443',
+  fr: '143442'
+};
+
+function fetchTextWithHeaders(url, headers = {}, depth = 0) {
+  return new Promise((resolve, reject) => {
+    if (depth > 5) return reject(new Error('Too many redirects'));
+    https.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        ...headers
+      }
+    }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        let loc = res.headers.location;
+        if (loc.startsWith('/')) {
+          const u = new URL(url);
+          loc = `${u.protocol}//${u.host}${loc}`;
+        }
+        return fetchTextWithHeaders(loc, headers, depth + 1).then(resolve).catch(reject);
+      }
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve({ statusCode: res.statusCode, body: data }));
+    }).on('error', reject);
+  });
+}
+
+async function fetchIosRatingsFallback(appId, country = 'vn') {
+  const c = (country || 'vn').toLowerCase();
+  const storeFront = APPLE_STOREFRONTS[c] || APPLE_STOREFRONTS.vn;
+
+  // Fallback 1: Apple Storefront customer-reviews endpoint (accurate across US/Vercel IPs)
+  try {
+    const reviewUrl = `https://itunes.apple.com/${c}/customer-reviews/id${appId}?displayable-kind=11`;
+    const { body } = await fetchTextWithHeaders(reviewUrl, {
+      'X-Apple-Store-Front': `${storeFront},12`,
+      'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7'
+    });
+    if (body) {
+      const votes = [...body.matchAll(/class="total"[^>]*>([^<]+)</g)].map(m => {
+        const digits = String(m[1]).replace(/[^\d]/g, '');
+        return digits ? parseInt(digits, 10) : 0;
+      });
+      let totalRatings = 0;
+      let weightedSum = 0;
+      if (votes.length === 5) {
+        // Votes are ordered 5 stars down to 1 star
+        for (let i = 0; i < 5; i++) {
+          const stars = 5 - i;
+          totalRatings += votes[i];
+          weightedSum += stars * votes[i];
+        }
+      }
+      if (!totalRatings) {
+        const countMatch = body.match(/class="rating-count"[^>]*>([^<]+)</i);
+        if (countMatch) {
+          const digits = countMatch[1].replace(/[^\d]/g, '');
+          if (digits) totalRatings = parseInt(digits, 10);
+        }
+      }
+      if (totalRatings > 0) {
+        const computedScore = weightedSum > 0 ? parseFloat((weightedSum / totalRatings).toFixed(2)) : null;
+        return { score: computedScore, ratings: totalRatings };
+      }
+    }
+  } catch (e) {
+    console.warn('[iOS Rating Fallback 1 Error]:', e.message);
+  }
+
+  // Fallback 2: Scrape App Store Web HTML JSON metadata
+  try {
+    const webUrl = `https://apps.apple.com/${c}/app/id${appId}`;
+    const { body } = await fetchTextWithHeaders(webUrl, {
+      'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7'
+    });
+    if (body) {
+      const avgMatch = body.match(/"ratingAverage"\s*:\s*([0-9.]+)/) || body.match(/"ratingValue"\s*:\s*([0-9.]+)/);
+      const cntMatch = body.match(/"ratingCount"\s*:\s*(\d+)/) || body.match(/"reviewCount"\s*:\s*(\d+)/);
+      const score = avgMatch ? parseFloat(avgMatch[1]) : null;
+      const ratings = cntMatch ? parseInt(cntMatch[1], 10) : 0;
+      if (score || ratings) {
+        return { score, ratings };
+      }
+    }
+  } catch (e) {
+    console.warn('[iOS Rating Fallback 2 Error]:', e.message);
+  }
+
+  return { score: null, ratings: 0 };
+}
+
 app.post(['/api/app-info/ios', '/app-info/ios'], async (req, res) => {
   try {
     const { url } = req.body || {};
@@ -2092,22 +2199,60 @@ app.post(['/api/app-info/ios', '/app-info/ios'], async (req, res) => {
       return res.status(400).json({ error: 'URL không được để trống' });
     }
     const appId = extractAppStoreId(url);
-    const country = extractAppStoreCountry(url);
+    const country = (extractAppStoreCountry(url) || 'vn').toLowerCase();
     if (!appId) {
       return res.status(400).json({ error: 'URL không hợp lệ. Không tìm thấy App Store ID' });
     }
-    const lookupUrl = `https://itunes.apple.com/lookup?id=${appId}&country=${country}`;
-    const data = await fetchJSON(lookupUrl);
-    if (!data || !data.results || data.results.length === 0) {
+
+    const storeFront = APPLE_STOREFRONTS[country] || APPLE_STOREFRONTS.vn;
+    const lookupUrl = `https://itunes.apple.com/${country}/lookup?id=${appId}&country=${country}&entity=software`;
+
+    const [lookupResult, fb] = await Promise.all([
+      (async () => {
+        try {
+          const { body } = await fetchTextWithHeaders(lookupUrl, {
+            'X-Apple-Store-Front': `${storeFront},12`
+          });
+          const data = JSON.parse(body);
+          if (data && Array.isArray(data.results) && data.results.length > 0) {
+            return data.results[0];
+          }
+        } catch (e) {
+          console.warn('[iOS Lookup Primary Error]:', e.message);
+        }
+        try {
+          const fallbackData = await fetchJSON(`https://itunes.apple.com/lookup?id=${appId}&country=${country}`);
+          if (fallbackData && Array.isArray(fallbackData.results) && fallbackData.results.length > 0) {
+            return fallbackData.results[0];
+          }
+        } catch (e) {
+          console.warn('[iOS Lookup Secondary Error]:', e.message);
+        }
+        return null;
+      })(),
+      fetchIosRatingsFallback(appId, country)
+    ]);
+
+    const appInfo = lookupResult;
+    if (!appInfo) {
       return res.status(404).json({ error: 'Không tìm thấy ứng dụng trên App Store' });
     }
-    const appInfo = data.results[0];
+
+    let score = appInfo.averageUserRating ?? appInfo.averageUserRatingForCurrentVersion ?? fb.score ?? null;
+    let ratings = appInfo.userRatingCount ?? appInfo.userRatingCountForCurrentVersion ?? 0;
+    if (fb.ratings && fb.ratings > ratings) {
+      ratings = fb.ratings;
+    }
+    if (!score && fb.score) {
+      score = fb.score;
+    }
+
     res.json({
       title: appInfo.trackName,
       developer: appInfo.artistName,
-      score: appInfo.averageUserRating,
-      ratings: appInfo.userRatingCount,
-      reviews: appInfo.userRatingCount,
+      score,
+      ratings,
+      reviews: ratings,
       icon: appInfo.artworkUrl512 || appInfo.artworkUrl100,
       appId: appId.toString(),
     });
